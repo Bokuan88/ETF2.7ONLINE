@@ -213,4 +213,117 @@ let globalPrices = {};
 // ===== 載入資料 =====
 window.addEventListener('DOMContentLoaded', async () => {
   const statusEl = document.getElementById('dbStatus');
-  const accountsList
+  const accountsListEl = document.getElementById('accountsList');
+  
+  try {
+    let loadedAccountsCount = 0;
+    let loadedPricesCount = 0;
+
+    // 1. 抓 holdings
+    for (let filename of ACCOUNT_FILES) {
+      try {
+        const res = await fetch(`holdings/${filename}`);
+        if (res.ok) {
+          globalDatabase[filename] = await res.json();
+          loadedAccountsCount++;
+        }
+      } catch (err) { console.warn(`無法讀取 holdings/${filename}`); }
+    }
+
+    // 2. 抓 prices
+    for (let filename of PRICE_FILES) {
+      try {
+        const res = await fetch(`prices/${filename}`);
+        if (res.ok) {
+          globalPrices[filename] = await res.json();
+          loadedPricesCount++;
+        }
+      } catch (err) { console.warn(`無法讀取 prices/${filename}`); }
+    }
+
+    if (loadedAccountsCount > 0) {
+      statusEl.textContent = `✅ 雲端資料載入就緒！共載入 ${loadedAccountsCount} 個持股帳戶、${loadedPricesCount} 檔股價資料。`;
+      document.getElementById('accountsCard').style.display = 'block';
+      document.getElementById('accountsCard2').style.display = 'block';
+
+      accountsListEl.innerHTML = '';
+      Object.keys(globalDatabase).forEach(acc => {
+        const displayName = acc.replace('.json', '');
+        accountsListEl.innerHTML += `
+          <label class="account-card" style="cursor:pointer;">
+            <input type="checkbox" name="accountChk" value="${acc}" checked style="accent-color:var(--brand); width:18px; height:18px;">
+            <div class="meta">
+              <div class="name-input">${displayName}</div>
+              <div class="stat">✅ 已載入</div>
+            </div>
+          </label>`;
+      });
+    } else {
+      statusEl.textContent = "⚠️ 找不到任何持股檔案，請確認 JSON 是否已上傳至 holdings 資料夾。";
+      statusEl.style.color = "var(--alert)";
+    }
+  } catch (e) {
+    statusEl.textContent = "載入發生錯誤：" + e.message;
+  }
+});
+
+// ===== 導覽列切換邏輯 =====
+const navItems = document.querySelectorAll('.nav-item');
+const views = document.querySelectorAll('.view');
+const topbarTitle = document.getElementById('topbarTitle');
+const topbarSub = document.getElementById('topbarSub');
+
+function switchView(viewName, titleText) {
+  navItems.forEach(b => b.classList.remove('active'));
+  views.forEach(v => v.classList.remove('active'));
+  
+  const targetBtn = document.querySelector(`.nav-item[data-view="${viewName}"]`);
+  const targetView = document.getElementById(`view-${viewName}`);
+  
+  if(targetBtn) targetBtn.classList.add('active');
+  if(targetView) targetView.classList.add('active');
+  
+  if(titleText) topbarTitle.textContent = titleText;
+  
+  // 手機版點擊選單後，稍微捲動回最上方
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+navItems.forEach(btn => {
+  btn.addEventListener('click', () => {
+    switchView(btn.getAttribute('data-view'), btn.textContent.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|\s/g, ''));
+  });
+});
+
+// ===== 「開始分析」按鈕邏輯 =====
+document.getElementById('btnRunAnalysis').addEventListener('click', () => {
+  // 1. 取得有打勾的帳戶
+  const checkboxes = document.querySelectorAll('input[name="accountChk"]:checked');
+  const selectedAccounts = Array.from(checkboxes).map(cb => cb.value);
+
+  if (selectedAccounts.length === 0) {
+    alert("請至少選擇一個帳戶進行分析！");
+    return;
+  }
+
+  // 2. 切換到「總覽」頁面
+  switchView('overview', '總覽');
+
+  // 3. 在總覽頁面顯示初步結果 (這裡可以替換成你原本用來畫圖表或計算報酬率的 JavaScript 函數)
+  const overviewContent = document.getElementById('overviewContent');
+  overviewContent.innerHTML = `
+    <div style="background: var(--brand-soft); padding: 16px; border-radius: var(--radius); color: var(--brand-dark);">
+      <strong>✅ 分析執行成功！</strong><br>
+      本次分析包含了以下帳戶資料：<br>
+      <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+        ${selectedAccounts.map(acc => `<span style="background: #fff; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--brand); font-size: 13px;">${acc.replace('.json','')}</span>`).join('')}
+      </div>
+    </div>
+    <p style="margin-top: 16px;">（備註：你原先用來計算總資產、畫出圓餅圖或折線圖的 JavaScript 分析模組，可以介接到這裡的 DOM 元素中。）</p>
+  `;
+});
+
+})();
+</script>
+</body>
+</html>
