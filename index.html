@@ -61,117 +61,30 @@ nav{flex:1; padding:14px 10px; display:flex; flex-direction:column; gap:2px; ove
 .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px;}
 .card + .card{margin-top:16px;}
 .card h2{font-size:15px; margin:0 0 12px; font-weight:600;}
-.card h3{font-size:13.5px; margin:0 0 10px; font-weight:600; color:var(--ink-soft);}
-.card-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;}
-.card-head h2{margin:0;}
 .hint{font-size:12.5px; color:var(--ink-faint); line-height:1.6; margin:6px 0 0;}
 
 .grid{display:grid; gap:16px;}
 .kpi-grid{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}
-.kpi{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px;}
-.kpi .num{font-size:24px; font-weight:600; font-family:'IBM Plex Mono',monospace;}
-.kpi .label{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
-
 button{font-family:inherit;}
 .btn{display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:6px; border:1px solid var(--line-strong); background:#fff; color:var(--ink); font-size:13.5px; cursor:pointer; white-space:nowrap;}
 .btn:hover{border-color:var(--brand); color:var(--brand-dark);}
 .btn-primary{background:var(--brand); border-color:var(--brand); color:#fff;}
 .btn-primary:hover{background:var(--brand-dark); border-color:var(--brand-dark); color:#fff;}
 .btn-ghost{border-color:transparent; background:transparent;}
-.btn-danger{color:var(--sell);}
-.btn:disabled{opacity:.4; cursor:not-allowed;}
 .btn-sm{padding:5px 10px; font-size:12.5px;}
 .btn-row{display:flex; gap:10px; flex-wrap:wrap;}
 
-.dropzone{border:1.5px dashed var(--line-strong); border-radius:var(--radius); padding:38px 20px; text-align:center; color:var(--ink-soft); background:#FBFCFD; cursor:pointer; transition:border-color .15s, background .15s;}
-.dropzone.drag{border-color:var(--brand); background:var(--brand-soft); color:var(--brand-dark);}
-.dropzone strong{color:var(--ink);}
-.dropzone .icon{font-size:30px; margin-bottom:8px;}
-
-table{width:100%; border-collapse:collapse; font-size:13.5px;}
-th,td{padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle;}
-th{color:var(--ink-soft); font-weight:600; font-size:12.5px;}
-tbody tr:hover td{background:#FAFBFC;}
-.num-cell{text-align:right; font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums;}
-.buy-text{color:var(--buy); font-weight:600;}
-.sell-text{color:var(--sell); font-weight:600;}
-.muted{color:var(--ink-faint);}
-.table-scroll{overflow-x:auto;}
-
-.pill{display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600;}
-.pill-brand{background:var(--brand-soft); color:var(--brand-dark);}
-.pill-alert{background:var(--alert-soft); color:var(--alert);}
-.pill-buy{background:var(--buy-soft); color:var(--buy);}
-.pill-sell{background:var(--sell-soft); color:var(--sell);}
-
 .account-card{display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid var(--line); border-radius:var(--radius); background:#fff;}
-.swatch{width:11px; height:11px; border-radius:3px; flex:none;}
-.account-card .meta{flex:1; min-width:0;}
-.account-card .name-input{font-size:14px; font-weight:600; border:none; background:transparent; width:100%; padding:2px 0; color:var(--ink);}
-.account-card .name-input:focus{outline:1px solid var(--focus); border-radius:4px;}
-.account-card .stat{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+.meta{flex:1; min-width:0;}
+.name-input{font-size:14px; font-weight:600; border:none; background:transparent; width:100%; padding:2px 0; color:var(--ink);}
+.stat{font-size:12px; color:var(--ink-soft); margin-top:2px;}
 
 .field{display:flex; flex-direction:column; gap:5px; font-size:13px;}
 .field label{font-size:12.5px; color:var(--ink-soft); font-weight:600;}
-select, input[type=text], input[type=date], input[type=number], input[type=search], textarea{
+select, input[type=text], input[type=date], input[type=number]{
   border:1px solid var(--line-strong); border-radius:6px; padding:7px 10px; font-size:13.5px; font-family:inherit; background:#fff; color:var(--ink);
 }
-textarea{font-family:'IBM Plex Mono',monospace; font-size:12.5px;}
-select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outline-offset:1px; border-color:var(--focus);}
 .filter-row{display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;}
-
-.checklist{display:flex; flex-wrap:wrap; gap:8px;}
-.chip{display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border:1px solid var(--line-strong); border-radius:999px; font-size:13px; cursor:pointer; background:#fff; user-select:none;}
-.chip input{accent-color:var(--brand);}
-.chip.checked{border-color:var(--brand); background:var(--brand-soft); color:var(--brand-dark);}
-
-.chart-wrap{position:relative; height:400px;}
-.chart-wrap.sm{height:190px;}
-.mini-grid{grid-template-columns:repeat(auto-fill,minmax(280px,1fr));}
-.mini-card{border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; background:#fff; cursor:pointer;}
-.mini-card:hover{border-color:var(--brand);}
-.mini-card .mini-head{display:flex; justify-content:space-between; font-size:13px; font-weight:600; margin-bottom:6px;}
-.mini-card .mini-sub{font-size:11.5px; color:var(--ink-faint); margin-bottom:8px;}
-
-.tabs{display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:16px; flex-wrap:wrap;}
-.tab{padding:9px 16px; border:none; background:transparent; font-size:13.5px; color:var(--ink-soft); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;}
-.tab.active{color:var(--brand-dark); border-color:var(--brand); font-weight:600;}
-.tab-panel{display:none;}
-.tab-panel.active{display:block;}
-
-.empty-state{padding:52px 20px; text-align:center; color:var(--ink-faint);}
-.empty-state .icon{font-size:34px; margin-bottom:10px;}
-
-.modal-backdrop{position:fixed; inset:0; background:rgba(15,23,32,.45); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px;}
-.modal{background:#fff; border-radius:10px; max-width:640px; width:100%; max-height:82vh; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,.28);}
-.modal-head{padding:18px 22px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:flex-start; gap:12px;}
-.modal-head h3{margin:0; font-size:16px; line-height:1.4;}
-.modal-body{padding:16px 22px; overflow:auto;}
-.modal-foot{padding:14px 22px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:10px;}
-.modal-close{background:transparent; border:none; font-size:20px; cursor:pointer; color:var(--ink-soft); line-height:1;}
-.alert-item{padding:12px 0; border-bottom:1px solid var(--line);}
-.alert-item:last-child{border-bottom:none;}
-.alert-item-head{font-weight:600; margin-bottom:4px;}
-.alert-item-body{font-size:13px; color:var(--ink-soft); line-height:1.65;}
-.code-pill{display:inline-block; background:var(--brand-dark); color:#fff; font-family:'IBM Plex Mono',monospace; padding:1px 7px; border-radius:5px; font-size:12px; margin-right:5px;}
-.modal-lead{font-size:13.5px; color:var(--ink-soft); margin:0 0 10px; line-height:1.6;}
-
-.toast-stack{position:fixed; right:20px; bottom:20px; display:flex; flex-direction:column; gap:8px; z-index:200;}
-.toast{background:var(--ink); color:#fff; padding:10px 16px; border-radius:8px; font-size:13.5px; box-shadow:var(--shadow); max-width:360px;}
-.toast.warn{background:var(--alert);}
-
-.legend-dot{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px;}
-.section-title{font-size:13px; font-weight:600; color:var(--ink-soft); margin:18px 0 8px;}
-.freshness-warn{color:var(--alert); font-size:12px; margin-left:4px;}
-
-@media (max-width: 880px){
-  .shell{flex-direction:column;}
-  .sidebar{width:100%; height:auto; position:relative; flex-direction:row;}
-  .brand{border-bottom:none;}
-  nav{flex-direction:row; overflow-x:auto;}
-  .sidebar-foot{display:none;}
-  .topbar{position:static;}
-}
 </style>
 </head>
 <body>
@@ -186,50 +99,26 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
       <button class="nav-item" data-view="overview">📊 總覽</button>
       <button class="nav-item" data-view="single">🔍 單一股票分析</button>
       <button class="nav-item" data-view="compare">📈 多股票比較</button>
-      <button class="nav-item" data-view="alerts">⚠️ 警示中心 <span class="nav-badge" id="alertBadge" style="display:none;">0</span></button>
+      <button class="nav-item" data-view="alerts">⚠️ 警示中心</button>
       <button class="nav-item" data-view="prices">💰 股價設定</button>
     </nav>
-    <div class="sidebar-foot">資料可透過 Excel 匯入或從 GitHub 自動載入；全部運算在瀏覽器本機完成。</div>
   </aside>
 
   <main class="content">
     <header class="topbar">
       <div>
         <h1 id="topbarTitle">匯入資料</h1>
-        <div class="sub" id="topbarSub">上傳每個帳戶／券商的 Excel 檔案，或自動從雲端載入</div>
-      </div>
-      <div class="btn-row">
-        <button class="btn btn-sm" data-action="export-snapshot">匯出快照</button>
-        <button class="btn btn-sm" data-action="import-snapshot">載入快照</button>
-        <input type="file" id="snapshotInput" accept="application/json" style="display:none;">
+        <div class="sub" id="topbarSub">從 GitHub 雲端自動載入 holdings 與 prices 資料夾</div>
       </div>
     </header>
-    <div id="libWarning" style="display:none; background:#FBEEDD; color:#8A4B12; padding:10px 28px; font-size:13px; border-bottom:1px solid #E9C98F;"></div>
 
-    <!-- ============ 匯入資料 ============ -->
     <section class="view active" id="view-import">
       <div class="card">
-        <h2>📁 雲端資料庫資料夾（自動從 GitHub 讀取）</h2>
-        <p class="hint">
-          網頁會自動向同目錄下的 <code>holdings/</code> 與 <code>prices/</code> 資料夾抓取資料。你也可以隨時透過下方 Excel 匯入新資料。
-        </p>
+        <h2>📁 雲端資料庫狀態（自動從 GitHub 讀取）</h2>
         <div id="dbStatus" class="hint" style="margin-top:8px; font-weight:bold; color:var(--brand);">正在從雲端載入資料庫...</div>
       </div>
 
-      <div class="card">
-        <h2>1. 選擇 Excel 資料庫檔案</h2>
-        <p class="hint">每一個 Excel 檔案代表一個帳戶／券商。檔案內需包含以「民國7碼日期」命名的工作表（例如 1150519），內容為每列一檔股票：A欄代碼、B欄名稱、C欄股數、D欄備註數值。</p>
-        <div class="dropzone" id="dropzone">
-          <div class="icon">📂</div>
-          <div><strong>拖曳檔案到這裡</strong>，或點擊選擇（可一次選多個 .xlsx / .xls / .xlsm）</div>
-        </div>
-        <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm,.xlsb" multiple style="display:none;">
-      </div>
-
       <div class="card" id="accountsCard" style="display:none;">
-        <div class="card-head">
-          <h2>2. 選擇分析區間（預設為今天往回一個月，可自行調整）</h2>
-        </div>
         <div class="filter-row" style="margin-bottom:0;">
           <div class="field">
             <label>起始日期</label>
@@ -239,250 +128,133 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
             <label>結束日期</label>
             <input type="date" id="importEndDate">
           </div>
-          <button class="btn btn-ghost btn-sm" data-action="import-range-full">改用全部日期範圍</button>
         </div>
       </div>
 
       <div class="card" id="accountsCard2" style="display:none;">
         <div class="card-head">
-          <h2 id="accountsCard2Title">3. 選擇要納入本次分析的帳戶</h2>
+          <h2 id="accountsCard2Title">選擇要納入本次分析的帳戶 (Holdings)</h2>
           <div class="btn-row">
-            <button class="btn btn-sm" data-action="select-all-accounts">全選</button>
-            <button class="btn btn-sm" data-action="select-none-accounts">全不選</button>
-            <button class="btn btn-primary" data-action="run-analysis">開始分析 →</button>
+            <button class="btn btn-sm" data-action="run-analysis">開始分析 →</button>
           </div>
         </div>
-        <div class="grid" id="accountsList" style="grid-template-columns:1fr;"></div>
-      </div>
-    </section>
-
-    <!-- ============ 總覽 ============ -->
-    <section class="view" id="view-overview">
-      <div class="card">
-        <div class="filter-row" style="margin-bottom:0;">
-          <div class="field">
-            <label>掃描區間起始</label>
-            <input type="date" id="scanStartDate">
-          </div>
-          <div class="field">
-            <label>掃描區間結束</label>
-            <input type="date" id="scanEndDate">
-          </div>
-          <div class="field" style="width:170px;">
-            <label>大量變動門檻（單期變動 ≥ 此比例）</label>
-            <div style="display:flex; align-items:center; gap:6px;">
-              <input type="number" id="scanBigPct" min="5" max="500" value="50" style="width:80px;">
-              <span class="muted">%</span>
-            </div>
-          </div>
-          <button class="btn btn-primary" data-action="run-scan">重新掃描</button>
-        </div>
-      </div>
-
-      <div class="grid kpi-grid" id="overviewKpis"></div>
-
-      <div class="card">
-        <div class="card-head">
-          <h2>① 多帳戶同步布局排行</h2>
-          <input type="search" id="section1Search" placeholder="搜尋代碼或名稱…" style="width:200px;">
-        </div>
-        <div class="chart-wrap" id="section1ChartWrap"><canvas id="section1Chart"></canvas></div>
-        <div class="section-title">完整清單</div>
-        <div class="table-scroll"><table id="section1Table"><thead></thead><tbody></tbody></table></div>
-      </div>
-
-      <div class="card">
-        <h2>② ⚠️ 同一天多帳戶同時大量賣出</h2>
-        <div class="chart-wrap sm" id="section2ChartWrap"><canvas id="section2Chart"></canvas></div>
-        <div class="section-title">事件明細</div>
-        <div id="section2List"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <h2>③ 🚀 單一 ETF 突發爆量買賣</h2>
-          <button class="btn btn-sm" data-action="reset-section3-zoom">重置縮放</button>
-        </div>
-        <div class="chart-wrap" id="section3ChartWrap"><canvas id="section3Chart"></canvas></div>
-        <div class="section-title">事件明細</div>
-        <div class="table-scroll"><table id="section3Table"><thead></thead><tbody></tbody></table></div>
-      </div>
-
-      <div class="section-title">持股趨勢小圖</div>
-      <div class="grid mini-grid" id="miniGrid"></div>
-    </section>
-
-    <!-- ============ 單一股票分析 ============ -->
-    <section class="view" id="view-single">
-      <div class="card">
-        <div class="filter-row">
-          <div class="field" style="width:220px;">
-            <label>股票代碼</label>
-            <input type="text" id="singleCodeInput" list="codeDatalist" placeholder="輸入或選擇代碼">
-            <datalist id="codeDatalist"></datalist>
-          </div>
-          <div class="field">
-            <label>起始日期</label>
-            <input type="date" id="singleStartDate">
-          </div>
-          <div class="field">
-            <label>結束日期</label>
-            <input type="date" id="singleEndDate">
-          </div>
-          <div class="field">
-            <label>走勢線型</label>
-            <select id="singleLineStyle"><option value="stepped">階梯圖</option><option value="line">曲線圖</option></select>
-          </div>
-        </div>
-        <div class="checklist" id="singleAccountChips"></div>
-      </div>
-
-      <div class="card" id="singleContent" style="display:none;">
-        <h2 id="singleTitle"></h2>
-        <div class="chart-wrap" id="singleChartWrap"><canvas id="singleChart"></canvas></div>
-        <div class="section-title">成本統計</div>
-        <div class="grid kpi-grid" id="singleCostKpis"></div>
-        <div class="section-title">各帳戶明細</div>
-        <div id="singleAccountTables"></div>
-      </div>
-      <div class="card empty-state" id="singleEmpty">
-        <div class="icon">🔍</div>請先在上方輸入股票代碼
-      </div>
-    </section>
-
-    <!-- ============ 多股票比較 ============ -->
-    <section class="view" id="view-compare">
-      <div class="card">
-        <div class="filter-row">
-          <div class="field" style="width:200px;">
-            <label>比較指標</label>
-            <select id="compareMetric">
-              <option value="shares">持股數（股）</option>
-              <option value="cost">累積投入成本（元）</option>
-            </select>
-          </div>
-          <div class="field" style="width:220px;">
-            <label>搜尋股票</label>
-            <input type="search" id="compareSearch" placeholder="輸入代碼或名稱篩選">
-          </div>
-        </div>
-        <div class="checklist" id="compareChips"></div>
-      </div>
-      <div class="card" id="compareContent" style="display:none;">
-        <div class="chart-wrap" id="compareChartWrap"><canvas id="compareChart"></canvas></div>
-      </div>
-      <div class="card empty-state" id="compareEmpty">
-        <div class="icon">📈</div>請至少選擇一檔股票進行比較
-      </div>
-    </section>
-
-    <!-- ============ 警示中心 ============ -->
-    <section class="view" id="view-alerts">
-      <div class="tabs">
-        <button class="tab active" data-tab="tab-sync-consecutive">多帳戶連續同步買進</button>
-      </div>
-      <div class="tab-panel active" id="tab-sync-consecutive">
-        <div class="card">
-          <div class="table-scroll"><table id="syncConsecutiveTable"><thead></thead><tbody></tbody></table></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ 股價設定 ============ -->
-    <section class="view" id="view-prices">
-      <div class="card">
-        <h2>📁 雲端價格資料庫</h2>
-        <p class="hint">價格資料會自動從 GitHub 內的 <code>prices/</code> 目錄載入。</p>
-        <div id="dbStatus2" class="hint" style="margin-top:8px;">已就緒</div>
+        <div class="grid" id="accountsList" style="grid-template-columns:1fr; margin-top:16px;"></div>
       </div>
     </section>
   </main>
 </div>
 
-<div id="modalRoot"></div>
-<div class="toast-stack" id="toastStack"></div>
-
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <script>
 (function(){
 "use strict";
 
-function esc(s){
-  return String(s==null?'':s).replace(/[&<>"']/g, function(c){
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
-  });
-}
+// 持股清單檔名 (holdings資料夾)
+const ACCOUNT_FILES = [
+  '00402A.json',
+  '00403A.json',
+  '00406A.json',
+  '00980A.json',
+  '00981A.json',
+  '00982A.json',
+  '00988A.json',
+  '00991A.json',
+  '00992A.json'
+];
 
-// 雲端自動載入資料初始化
+// 股價資料檔名 (prices資料夾) - 備用供後續分析模組讀取
+const PRICE_FILES = [
+  '1303.json',
+  '2303.json',
+  '2313.json',
+  '2345.json',
+  '2368.json',
+  '2408.json',
+  '2449.json',
+  '3189.json',
+  '6488.json',
+  '6669.json',
+  '8210.json',
+  'MRVL.json'
+];
+
+let globalDatabase = {};
+let globalPrices = {};
+
 window.addEventListener('DOMContentLoaded', async () => {
   const statusEl = document.getElementById('dbStatus');
+  const accountsListEl = document.getElementById('accountsList');
+  
   try {
-    statusEl.textContent = "正在連線 GitHub 雲端資料庫...";
+    statusEl.textContent = "正在從 GitHub 讀取 holdings/ 與 prices/ 資料...";
     
-    // 試圖透過 fetch 載入 holdings 與 prices 的資料檔案
-    // 預設支援讀取常見的 manifest 或直接載入
-    let loadedCount = 0;
-    try {
-      const res = await fetch('holdings/manifest.json');
-      if (res.ok) {
-        const files = await res.json();
-        for (let file of files) {
-          const fRes = await fetch(`holdings/${file}`);
-          if (fRes.ok) {
-            const data = await fRes.json();
-            // 載入邏輯整合至全域資料變數
-            loadedCount++;
-          }
-        }
-      }
-    } catch(e) { console.log("未啟用 manifest，改用手動或 Excel 匯入"); }
+    let loadedAccountsCount = 0;
+    let loadedPricesCount = 0;
 
-    statusEl.textContent = `雲端資料載入就緒（已載入 ${loadedCount} 個帳戶資料）。你也可以隨時透過下方拖曳 Excel 檔案新增資料。`;
-    document.getElementById('accountsCard').style.display = 'block';
-    document.getElementById('accountsCard2').style.display = 'block';
+    // 1. 載入 holdings
+    for (let filename of ACCOUNT_FILES) {
+      try {
+        const res = await fetch(`holdings/${filename}`);
+        if (res.ok) {
+          const data = await res.json();
+          globalDatabase[filename] = data;
+          loadedAccountsCount++;
+        }
+      } catch (err) {
+        console.warn(`無法讀取 holdings/${filename}`, err);
+      }
+    }
+
+    // 2. 載入 prices (供後續模組使用)
+    for (let filename of PRICE_FILES) {
+      try {
+        const res = await fetch(`prices/${filename}`);
+        if (res.ok) {
+          const data = await res.json();
+          globalPrices[filename] = data;
+          loadedPricesCount++;
+        }
+      } catch (err) {
+        console.warn(`無法讀取 prices/${filename}`, err);
+      }
+    }
+
+    if (loadedAccountsCount > 0) {
+      statusEl.textContent = `雲端資料載入就緒！已成功載入 ${loadedAccountsCount} 個持股帳戶與 ${loadedPricesCount} 檔股價資料。`;
+      document.getElementById('accountsCard').style.display = 'block';
+      document.getElementById('accountsCard2').style.display = 'block';
+
+      accountsListEl.innerHTML = '';
+      Object.keys(globalDatabase).forEach(acc => {
+        const displayName = acc.replace('.json', ''); // 去除副檔名讓畫面更好看
+        accountsListEl.innerHTML += `
+          <label class="account-card" style="cursor:pointer;">
+            <input type="checkbox" name="accountChk" value="${acc}" checked style="accent-color:var(--brand);">
+            <div class="meta">
+              <div class="name-input">${displayName}</div>
+              <div class="stat">狀態：已從雲端載入</div>
+            </div>
+          </label>`;
+      });
+    } else {
+      statusEl.textContent = "⚠️ 找不到任何帳戶檔案。請確定已將檔案推送到 GitHub 的 holdings/ 資料夾。";
+    }
   } catch (e) {
-    statusEl.textContent = "初始化完成，請匯入 Excel 或確認雲端資料夾。";
+    statusEl.textContent = "載入發生錯誤：" + e.message;
     console.error(e);
   }
 });
 
-// 分頁切換
 document.querySelectorAll('.nav-item').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     btn.classList.add('active');
     const viewId = 'view-' + btn.getAttribute('data-view');
-    document.getElementById(viewId).classList.add('active');
-    document.getElementById('topbarTitle').textContent = btn.textContent.trim();
+    const target = document.getElementById(viewId);
+    if(target) target.classList.add('active');
   });
 });
-
-// Excel 檔案拖曳解析監聽
-const dropzone = document.getElementById('dropzone');
-const fileInput = document.getElementById('fileInput');
-if(dropzone && fileInput){
-  dropzone.addEventListener('click', () => fileInput.click());
-  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
-  dropzone.addEventListener('drop', e => {
-    e.preventDefault(); dropzone.classList.remove('drag');
-    if(e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
-  });
-  fileInput.addEventListener('change', e => {
-    if(e.target.files.length > 0) handleFiles(e.target.files);
-  });
-}
-
-function handleFiles(files){
-  alert("已收到 " + files.length + " 個檔案，正在解析...");
-  // 這裡會接續原本的 SheetJS 解析邏輯
-}
 
 })();
 </script>
