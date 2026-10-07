@@ -164,13 +164,68 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
 .section-title{font-size:13px; font-weight:600; color:var(--ink-soft); margin:18px 0 8px;}
 .freshness-warn{color:var(--alert); font-size:12px; margin-left:4px;}
 
+/* ===== 手機版（寬度 ≤ 880px）：介面整個改成適合小螢幕的版面，跟電腦版分開 ===== */
 @media (max-width: 880px){
+  body{font-size:14px;}
   .shell{flex-direction:column;}
-  .sidebar{width:100%; height:auto; position:relative; flex-direction:row;}
-  .brand{border-bottom:none;}
-  nav{flex-direction:row; overflow-x:auto;}
+  .brand{display:none;}
+  .sidebar{
+    position:fixed; left:0; right:0; bottom:0; top:auto; width:100%; height:auto;
+    flex-direction:row; z-index:80; box-shadow:0 -2px 10px rgba(0,0,0,.15);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  nav{flex-direction:row; overflow-x:auto; padding:6px 4px; gap:2px;}
+  .nav-item{flex:1 0 auto; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:10.5px; padding:7px 2px; white-space:nowrap; min-width:58px;}
+  .nav-badge{position:absolute; top:2px; right:10px;}
   .sidebar-foot{display:none;}
-  .topbar{position:static;}
+  .content{padding-bottom:62px;}
+  .topbar{position:static; padding:14px 16px; flex-wrap:wrap; gap:8px;}
+  .topbar h1{font-size:17px;}
+  .topbar .sub{display:none;}
+  .topbar .btn-row{width:100%; justify-content:flex-start;}
+  #libWarning{padding:10px 16px; font-size:12px;}
+
+  .view{padding:14px 14px 24px;}
+  .card{padding:14px 14px;}
+  .card + .card{margin-top:12px;}
+  .card h2{font-size:14px;}
+  .card-head{flex-wrap:wrap; gap:8px;}
+  .card-head .btn-row{width:100%;}
+
+  .kpi-grid{grid-template-columns:repeat(2,1fr); gap:10px;}
+  .kpi{padding:12px 12px;}
+  .kpi .num{font-size:19px;}
+
+  .filter-row{flex-direction:column; align-items:stretch; gap:10px;}
+  .filter-row .field{width:100% !important;}
+  .filter-row .btn, .filter-row .btn-row{width:100%;}
+  select, input[type=text], input[type=date], input[type=number], input[type=search], textarea{
+    width:100%; font-size:16px; padding:9px 10px; /* 16px 避免 iOS 自動放大畫面 */
+  }
+  .tabs{overflow-x:auto; flex-wrap:nowrap;}
+  .tab{padding:9px 12px; font-size:12.5px; white-space:nowrap;}
+
+  .chart-wrap{height:260px;}
+  .chart-wrap.sm{height:150px;}
+  .mini-grid{grid-template-columns:1fr 1fr; gap:10px;}
+
+  table{font-size:12px;}
+  th,td{padding:7px 6px;}
+  .code-pill{font-size:11px;}
+  .pill{font-size:11px; padding:1px 7px;}
+
+  .account-card{flex-wrap:wrap; padding:10px 12px;}
+  .chip{padding:7px 12px; font-size:12.5px;}
+
+  .modal{max-width:94vw; max-height:88vh;}
+  .modal-body{padding:14px 16px;}
+  .dropzone{padding:24px 14px;}
+
+  /* 桌面版專屬的輔助說明文字，手機上先收起來，避免一打開就要滑很久才看得到重點 */
+  .desktop-only-hint{display:none;}
+}
+@media (min-width: 881px){
+  .mobile-only{display:none !important;}
 }
 </style>
 </head>
@@ -189,7 +244,7 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
       <button class="nav-item" data-view="alerts">⚠️ 警示中心 <span class="nav-badge" id="alertBadge" style="display:none;">0</span></button>
       <button class="nav-item" data-view="prices">💰 股價設定</button>
     </nav>
-    <div class="sidebar-foot">線上版會自動從 GitHub 上的 holdings／prices 資料夾載入；股價線上抓取會連線外部金融網站。</div>
+    <div class="sidebar-foot">資料不會上傳到任何伺服器；股價查詢會連線 Yahoo Finance，僅此功能需要網路。</div>
   </aside>
 
   <main class="content">
@@ -211,7 +266,7 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
       <div class="card">
         <h2>📁 本機資料庫資料夾（持股＋股價共用，記住舊資料，換電腦也能帶著走）</h2>
         <p class="hint">
-          線上版已會自動從 GitHub 的 <code>holdings/</code> 與 <code>prices/</code> 載入，通常無需再操作。若要在本機額外累積資料，仍可連接一個資料夾（建議跟這個 HTML 放同一層）。本機資料夾裡會自動建立 <code>holdings/</code>（每個帳戶一個檔案）跟 <code>prices/</code>（每檔股票一個檔案）兩個子資料夾——<strong>不是全部資料擠在一個檔案裡</strong>，之後新增資料只會重寫「真正有變動」的那一個帳戶／股票檔案，不會動到其他資料，也不會有單一檔案無限長大、越存越慢的問題。
+          連接一個放在電腦上的資料夾（建議跟這個 HTML 放同一層）。這個資料夾裡會自動建立 <code>holdings/</code>（每個帳戶一個檔案）跟 <code>prices/</code>（每檔股票一個檔案）兩個子資料夾——<strong>不是全部資料擠在一個檔案裡</strong>，之後新增資料只會重寫「真正有變動」的那一個帳戶／股票檔案，不會動到其他資料，也不會有單一檔案無限長大、越存越慢的問題。
           <br>同一個帳戶只會<strong>新增資料庫裡還沒有的日期</strong>，既有日期永遠不會被覆蓋或刪除。下次打開網頁會自動嘗試重新連接，不用每次都重新上傳所有 Excel 原始檔。搬到別台電腦時，把 HTML 和整個資料夾一起複製過去，在那台電腦點一次「選擇／建立資料庫資料夾」即可繼續累積。
           <br><span class="muted">提醒：在畫面上按「移除」某個帳戶或「清空全部」，只是暫時從畫面隱藏，不會刪除資料夾裡的檔案。</span>
           <span class="db-unsupported-note" style="display:none; color:#B9752A;"><br>⚠️ 你目前使用的瀏覽器不支援這個功能（只有電腦版 Chrome／Edge 支援），資料只會保留在這次瀏覽中；建議改用 Chrome／Edge，或用「匯出快照／載入快照」手動搬移。</span>
@@ -219,7 +274,7 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
         <div class="btn-row">
           <button class="btn btn-primary" data-action="connect-db-directory">選擇／建立資料庫資料夾</button>
         </div>
-        <div id="dbStatus" class="hint" style="margin-top:8px;">正在嘗試自動載入線上資料庫（holdings／prices）…</div>
+        <div id="dbStatus" class="hint" style="margin-top:8px;">尚未連接本機資料庫資料夾，目前資料只暫存在瀏覽器裡。</div>
 
         <div class="section-title">從舊版單一合併檔案搬家（一次性，之後就不需要了）</div>
         <p class="hint">如果你手上還有舊版工具產生的 <code>holdings_database.json</code> 或 <code>price_database.json</code>（一整包合併在一起的檔案），上傳到這裡就會自動拆成一帳戶一檔、一股票一檔，合併進上面連接的資料庫資料夾（規則一樣：只新增，不覆蓋既有資料）。</p>
@@ -516,7 +571,7 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
         <p class="hint">
           股價跟持股現在共用同一個資料庫資料夾（在「匯入資料」頁面連接），這裡只顯示連線狀態。之後每次你匯入新的價格報表，只會重寫「這一檔股票」自己的檔案，不會動到其他股票的資料。
         </p>
-        <div id="dbStatus2" class="hint" style="margin-top:8px;">正在嘗試自動載入線上資料庫（holdings／prices）…</div>
+        <div id="dbStatus2" class="hint" style="margin-top:8px;">尚未連接本機資料庫資料夾，目前資料只暫存在瀏覽器裡。</div>
         <div class="btn-row" style="margin-top:8px;">
           <button class="btn btn-sm" data-action="connect-db-directory">選擇／建立資料庫資料夾</button>
         </div>
@@ -929,13 +984,40 @@ function flushDirtyWrites(){
   if(!dbDirHandle) return;
   var accIds = Array.from(dirtyAccountIds); dirtyAccountIds.clear();
   var codes = Array.from(dirtyPriceCodes); dirtyPriceCodes.clear();
-  accIds.forEach(function(id){
+  var p1 = Promise.all(accIds.map(function(id){
     var acc = State.accounts.find(function(a){ return a.id===id; });
-    if(acc) writeAccountFile(acc).catch(function(e){ console.warn('寫入帳戶檔案失敗（'+acc.name+'）：', e); });
-  });
-  codes.forEach(function(code){
-    writePriceFile(code).catch(function(e){ console.warn('寫入股價檔案失敗（'+code+'）：', e); });
-  });
+    return acc ? writeAccountFile(acc).catch(function(e){ console.warn('寫入帳戶檔案失敗（'+acc.name+'）：', e); }) : null;
+  }));
+  var p2 = Promise.all(codes.map(function(code){
+    return writePriceFile(code).catch(function(e){ console.warn('寫入股價檔案失敗（'+code+'）：', e); });
+  }));
+  if(accIds.length || codes.length){
+    Promise.all([p1,p2]).then(updateManifests).catch(function(e){ console.warn('更新清單檔失敗：', e); });
+  }
+}
+/* 清單檔（holdings/index.json、prices/index.json）：記錄資料夾裡目前有哪些帳戶／股票檔案。
+   這是給「掛到網站上用 fetch 讀取」的唯讀版本用的——靜態網站（例如 GitHub Pages）沒辦法
+   像本機一樣列出資料夾內容，所以需要這份清單告訴頁面要抓哪些檔案。每次有檔案異動就重寫一次。 */
+async function updateManifests(){
+  if(!dbDirHandle) return;
+  try{
+    var holdingsDir = await getDbSubDir('holdings');
+    var hNames = [];
+    for await (var he of holdingsDir.entries()){
+      if(he[1].kind==='file' && /\.json$/i.test(he[0]) && he[0]!=='index.json') hNames.push(he[0]);
+    }
+    var hfh = await holdingsDir.getFileHandle('index.json', {create:true});
+    var hw = await hfh.createWritable(); await hw.write(JSON.stringify(hNames)); await hw.close();
+  }catch(e){ console.warn('更新 holdings 清單檔失敗：', e); }
+  try{
+    var pricesDir = await getDbSubDir('prices');
+    var pNames = [];
+    for await (var pe of pricesDir.entries()){
+      if(pe[1].kind==='file' && /\.json$/i.test(pe[0]) && pe[0]!=='index.json') pNames.push(pe[0]);
+    }
+    var pfh = await pricesDir.getFileHandle('index.json', {create:true});
+    var pw = await pfh.createWritable(); await pw.write(JSON.stringify(pNames)); await pw.close();
+  }catch(e){ console.warn('更新 prices 清單檔失敗：', e); }
 }
 /* 掃描資料夾內 holdings/、prices/ 兩個子資料夾，把每個檔案合併進目前的資料
    （合併規則跟原本一樣：只新增沒有的，既有的不覆蓋）。 */
@@ -989,151 +1071,13 @@ async function connectDbDirectory(){
     var msg = '✅ 已連接資料庫資料夾：'+handle.name+'（讀入 '+r.accSummaries.length+' 個帳戶、'+r.priceCodes+' 檔股票的股價共 '+r.pricePoints+' 筆）';
     setDbStatus(msg);
     toast('已連接資料庫資料夾，之後上傳的新資料會自動分檔寫入。');
+    updateManifests().catch(function(e){ console.warn('建立清單檔失敗：', e); });
   }catch(err){
     if(err.name !== 'AbortError') toast('連接資料夾失敗：'+err.message, true);
   }
 }
 /* 開啟網頁時，嘗試靜默重新連接上次使用的資料夾（同一台電腦、同一個瀏覽器才有記錄）。
    若權限需要重新確認，就先顯示提示，等使用者按按鈕再要求授權（瀏覽器規定必須有使用者操作）。 */
-
-/* ============================================================
-   線上資料庫（GitHub Pages / 同站相對路徑）
-   開啟網頁時自動從 ./holdings/ 與 ./prices/ 載入所有 JSON，
-   不需手動選擇本機資料夾。本機 File System Access 仍保留為選用功能。
-============================================================ */
-var REMOTE_DB = {
-  enabled: true,
-  // 自動偵測 github.io；失敗時用此預設
-  githubOwner: 'Bokuan88',
-  githubRepo: 'ETF2.7ONLINE',
-  githubBranch: 'main',
-  loaded: false
-};
-
-function detectGithubRepo(){
-  try{
-    var host = location.hostname || '';
-    var m = host.match(/^([a-z0-9-]+)\.github\.io$/i);
-    if(m){
-      var parts = (location.pathname || '/').split('/').filter(Boolean);
-      // https://user.github.io/REPO/  → parts[0] = REPO
-      // https://user.github.io/       → user site root
-      var owner = m[1];
-      var repo = parts.length ? parts[0] : (owner + '.github.io');
-      return { owner: owner, repo: repo, branch: REMOTE_DB.githubBranch };
-    }
-  }catch(e){}
-  return { owner: REMOTE_DB.githubOwner, repo: REMOTE_DB.githubRepo, branch: REMOTE_DB.githubBranch };
-}
-
-async function listRemoteJsonFiles(subdir){
-  var gh = detectGithubRepo();
-  var apiUrl = 'https://api.github.com/repos/' + gh.owner + '/' + gh.repo + '/contents/' + subdir + '?ref=' + gh.branch;
-  var res = await fetch(apiUrl, { headers: { 'Accept': 'application/vnd.github+json' } });
-  if(!res.ok) throw new Error('無法列出 ' + subdir + '（HTTP ' + res.status + '）');
-  var items = await res.json();
-  if(!Array.isArray(items)) throw new Error(subdir + ' 回傳格式異常');
-  return items.filter(function(it){
-    return it && it.type === 'file' && /\.json$/i.test(it.name || '');
-  }).map(function(it){
-    // 優先用同站相對路徑（GitHub Pages），否則用 raw.githubusercontent.com
-    var rel = subdir + '/' + it.name;
-    return {
-      name: it.name,
-      relPath: './' + rel,
-      downloadUrl: it.download_url || ('https://raw.githubusercontent.com/' + gh.owner + '/' + gh.repo + '/' + gh.branch + '/' + rel)
-    };
-  });
-}
-
-async function fetchJsonText(fileInfo){
-  // 先試相對路徑（同站、無 CORS 問題），失敗再試 download_url
-  try{
-    var r1 = await fetch(fileInfo.relPath, { cache: 'no-cache' });
-    if(r1.ok){
-      var t1 = await r1.text();
-      if(t1 && t1.trim()) return t1;
-    }
-  }catch(e){}
-  var r2 = await fetch(fileInfo.downloadUrl, { cache: 'no-cache' });
-  if(!r2.ok) throw new Error(fileInfo.name + ' 下載失敗 HTTP ' + r2.status);
-  return await r2.text();
-}
-
-async function loadRemoteDatabase(){
-  if(!REMOTE_DB.enabled) return null;
-  setDbStatus('正在從線上資料庫載入 holdings／prices …');
-  var accSummaries = [];
-  var priceCodes = 0, pricePoints = 0;
-  var holdingsFiles = await listRemoteJsonFiles('holdings');
-  for(var i = 0; i < holdingsFiles.length; i++){
-    var f = holdingsFiles[i];
-    try{
-      var text = await fetchJsonText(f);
-      if(!text.trim()) continue;
-      var acc = deserializeOneAccount(JSON.parse(text));
-      acc._fileKey = f.name;
-      var r = mergeAccountIntoStore(acc);
-      accSummaries.push(r.isNew
-        ? (r.name + '：新帳戶，' + r.total + ' 個日期')
-        : (r.name + '：新增 ' + r.added + ' 個日期，目前共 ' + r.total + ' 個'));
-    }catch(e){
-      console.warn('讀取線上帳戶檔「' + f.name + '」失敗：', e);
-    }
-  }
-  var priceFiles = await listRemoteJsonFiles('prices');
-  for(var j = 0; j < priceFiles.length; j++){
-    var pf = priceFiles[j];
-    try{
-      var ptext = await fetchJsonText(pf);
-      if(!ptext.trim()) continue;
-      var pobj = JSON.parse(ptext);
-      var code = pobj.code || pf.name.replace(/\.json$/i, '');
-      var added = mergePriceData(code, pobj.prices || {});
-      if(added > 0){ priceCodes++; pricePoints += added; }
-    }catch(e){
-      console.warn('讀取線上股價檔「' + pf.name + '」失敗：', e);
-    }
-  }
-  REMOTE_DB.loaded = true;
-  return {
-    accSummaries: accSummaries,
-    priceCodes: priceCodes,
-    pricePoints: pricePoints,
-    holdingsFileCount: holdingsFiles.length,
-    pricesFileCount: priceFiles.length
-  };
-}
-
-async function initDataSources(){
-  // 1) 優先自動載入線上 holdings／prices（GitHub）
-  if(REMOTE_DB.enabled){
-    try{
-      var r = await loadRemoteDatabase();
-      if(r){
-        reassignAccountVisuals();
-        renderAccountsList();
-        rebuildIndex();
-        runAlerts();
-        savePriceCache();
-        if(State.ui.priceTableCode) renderPriceTable(State.ui.priceTableCode);
-        var msg = '✅ 已自動載入線上資料庫：' + r.holdingsFileCount + ' 個帳戶檔、' +
-          r.pricesFileCount + ' 檔股價（讀入 ' + r.accSummaries.length + ' 個帳戶、新增股價 ' + r.pricePoints + ' 筆）';
-        setDbStatus(msg);
-        if(r.accSummaries.length || r.pricePoints){
-          toast('線上資料庫載入完成。');
-        }
-      }
-    }catch(err){
-      console.warn('線上資料庫載入失敗：', err);
-      setDbStatus('⚠️ 線上資料庫自動載入失敗：' + (err && err.message ? err.message : err) +
-        '。可改用下方「選擇／建立資料庫資料夾」或「載入快照」。');
-    }
-  }
-  // 2) 仍嘗試靜默重連本機資料夾（選用，不覆蓋已載入的線上資料規則：只新增）
-  await tryReconnectDbDirectory();
-}
-
 async function tryReconnectDbDirectory(){
   if(!FSA_SUPPORTED){
     document.querySelectorAll('.db-unsupported-note').forEach(function(el){ el.style.display='inline'; });
@@ -1158,6 +1102,58 @@ async function tryReconnectDbDirectory(){
       setDbStatus('📎 偵測到之前連接過的資料庫資料夾「'+handle.name+'」，請按「選擇／建立資料庫資料夾」重新授權一次（瀏覽器安全機制規定每次重啟都需要手動確認一次）。');
     }
   }catch(err){ console.warn('嘗試重新連接資料庫資料夾失敗：', err); }
+}
+/* 網站唯讀自動載入（例如掛在 GitHub Pages 上的版本）：
+   這個頁面如果是用 http(s):// 開啟（不是本機雙擊開啟的 file://），就試著直接用 fetch
+   讀取同目錄下 holdings/index.json、prices/index.json 這兩份清單檔，再依清單把每個帳戶／
+   股票的 JSON 檔抓回來、合併進資料。手機上用、或是只是想看資料但不需要編輯時特別好用，
+   因為 fetch 在任何瀏覽器（含 Safari、iOS）都能用，不像資料夾連線只有電腦版 Chrome／Edge
+   才支援。這個網站版本是唯讀的：抓回來的資料不會、也沒辦法寫回 GitHub，要新增或更新資料
+   還是要在電腦上用「選擇／建立資料庫資料夾」那個版本，改完再把資料夾裡的檔案更新到 GitHub。 */
+async function tryAutoFetchFromHostedData(){
+  if(!/^https?:/i.test(location.protocol)) return; // 本機 file:// 開啟時，大多數瀏覽器會擋掉這種 fetch，直接跳過
+  var loadedAccounts = 0, loadedCodes = 0, loadedPoints = 0;
+  try{
+    var hIdx = await fetch('holdings/index.json', {cache:'no-cache'});
+    if(hIdx.ok){
+      var names = await hIdx.json();
+      for(var i=0;i<names.length;i++){
+        try{
+          var hr = await fetch('holdings/'+encodeURIComponent(names[i]), {cache:'no-cache'});
+          if(!hr.ok) continue;
+          var acc = deserializeOneAccount(await hr.json());
+          acc._fileKey = names[i];
+          var mr = mergeAccountIntoStore(acc);
+          if(mr.isNew || mr.added>0) loadedAccounts++;
+        }catch(e){ console.warn('讀取 holdings/'+names[i]+' 失敗：', e); }
+      }
+    }
+  }catch(e){ /* 沒有這份清單檔，或不是用網站方式開啟，安靜略過 */ }
+  try{
+    var pIdx = await fetch('prices/index.json', {cache:'no-cache'});
+    if(pIdx.ok){
+      var pnames = await pIdx.json();
+      for(var j=0;j<pnames.length;j++){
+        try{
+          var pr = await fetch('prices/'+encodeURIComponent(pnames[j]), {cache:'no-cache'});
+          if(!pr.ok) continue;
+          var pobj = await pr.json();
+          var code = pobj.code || pnames[j].replace(/\.json$/i,'');
+          var added = mergePriceData(code, pobj.prices||{});
+          if(added>0){ loadedCodes++; loadedPoints += added; }
+        }catch(e){ console.warn('讀取 prices/'+pnames[j]+' 失敗：', e); }
+      }
+    }
+  }catch(e){ /* 同上 */ }
+  if(loadedAccounts>0 || loadedPoints>0){
+    reassignAccountVisuals();
+    renderAccountsList();
+    rebuildIndex();
+    runAlerts();
+    savePriceCache();
+    if(State.ui.priceTableCode) renderPriceTable(State.ui.priceTableCode);
+    setDbStatus('🌐 已從網站資料自動載入：'+loadedAccounts+' 個帳戶、'+loadedCodes+' 檔股票的股價（唯讀——這個版本的資料來自網站本身，無法在這裡新增或修改；要更新資料請在電腦版用「選擇／建立資料庫資料夾」連到本機資料夾編輯後，再更新到 GitHub）。');
+  }
 }
 /* 從舊版「單一合併檔案」搬家：holdings_database.json（{accounts:[...]}）
    與 price_database.json（{代碼:{日期:價格}}）都支援，上傳後會自動拆成
@@ -2705,6 +2701,48 @@ async function fetchPriceOnline(code, startDate, endDate){
   if(s.ok) return s;
   return { ok:false };
 }
+/* 輸入／選到股票代碼時自動在背景補股價：有舊資料就只抓「最後一筆之後到今天」，
+   完全沒有資料就抓近 2 年，抓回來一樣只新增缺的日期，不會動到既有數值。
+   只對「使用者真的查詢過」的代碼才會抓，不會主動幫所有持股的股票預先抓好一堆用不到的資料。 */
+var autoFetchInFlight = new Set();
+var autoFetchDoneThisSession = new Set();
+async function autoFetchPriceForCode(code){
+  if(!code || !State.codeIndex[code]) return;
+  var resolved = resolvePriceCode(code);
+  if(autoFetchInFlight.has(resolved) || autoFetchDoneThisSession.has(resolved)) return;
+  autoFetchInFlight.add(resolved);
+  try{
+    var today = new Date();
+    var cache = State.priceCache[resolved];
+    var startDate;
+    if(cache && Object.keys(cache).length){
+      var lastIso = Object.keys(cache).sort().slice(-1)[0];
+      var d = new Date(lastIso+'T00:00:00'); d.setDate(d.getDate()+1);
+      var todayIso = today.getFullYear()+'-'+pad2(today.getMonth()+1)+'-'+pad2(today.getDate());
+      if(lastIso >= todayIso){ autoFetchInFlight.delete(resolved); autoFetchDoneThisSession.add(resolved); return; }
+      startDate = d;
+    }else{
+      startDate = new Date(today.getFullYear()-2, today.getMonth(), today.getDate());
+    }
+    var r = await fetchPriceOnline(resolved, startDate, today);
+    autoFetchDoneThisSession.add(resolved);
+    if(r.ok){
+      var added = mergePriceData(resolved, r.data);
+      if(added > 0){
+        savePriceCache();
+        toast('已自動更新「'+code+'」股價：新增 '+added+' 筆（來源：'+r.source+'）');
+        if(State.ui.singleCode === code) renderSingleContent();
+        if(State.ui.priceTableCode === resolved) renderPriceTable(resolved);
+      }
+    }
+  }catch(e){ console.warn('自動抓取股價失敗（'+code+'）：', e); }
+  finally{ autoFetchInFlight.delete(resolved); }
+}
+var autoFetchTimer = null;
+function scheduleAutoFetchPrice(code){
+  if(autoFetchTimer) clearTimeout(autoFetchTimer);
+  autoFetchTimer = setTimeout(function(){ autoFetchPriceForCode(code); }, 600);
+}
 /* 合併新舊價格資料：只補上資料庫「還沒有」的日期，既有的數值一律保留不覆蓋。 */
 function mergePriceData(code, newMap){
   var resolved = resolvePriceCode(code);
@@ -2782,6 +2820,7 @@ document.addEventListener('click', function(e){
     State.ui.singleCode = el.dataset.code;
     State.ui.singleAccounts = new Set(Array.from(State.codeIndex[el.dataset.code].accountIds));
     setView('single');
+    scheduleAutoFetchPrice(el.dataset.code);
     return;
   }
   if(action==='reopen-popup'){ showSyncAlertPopup(); return; }
@@ -2881,7 +2920,11 @@ document.addEventListener('click', function(e){
 });
 
 document.addEventListener('input', function(e){
-  if(e.target.id === 'singleCodeInput'){ renderSingleChips(); renderSingleContent(); }
+  if(e.target.id === 'singleCodeInput'){
+    renderSingleChips(); renderSingleContent();
+    var scode = extractCode(e.target.value);
+    if(scode && State.codeIndex[scode]) scheduleAutoFetchPrice(scode);
+  }
   if(e.target.id === 'singleStartDate' || e.target.id === 'singleEndDate') renderSingleContent();
   if(e.target.id === 'priceCodeInput'){
     var code = extractCode(e.target.value);
@@ -3107,7 +3150,8 @@ function safeRenderChart(wrapId, canvasId, fn){
 
 /* 初始化 */
 loadPriceCache();
-initDataSources();
+tryReconnectDbDirectory();
+tryAutoFetchFromHostedData();
 setView('import');
 
 })();
