@@ -778,6 +778,10 @@ function deserializeAccounts(arr){
    同名帳戶只新增資料庫裡「還沒有的日期」，既有日期一律保留不覆蓋、不刪除；
    全新的帳戶名稱就整個加進去。回傳合併結果，方便顯示提示訊息。 */
 function mergeAccountIntoStore(newAcc){
+  /* 空帳戶（無名稱或無任何日期工作表）不併入，避免畫面列表崩潰與匯出 unnamed.json */
+  if(!newAcc || !(newAcc.name && String(newAcc.name).trim()) || !(newAcc.sheets && newAcc.sheets.length)){
+    return { name: (newAcc && newAcc.name) || '（空）', isNew:false, added:0, total:0, accId: null, skipped:true };
+  }
   var existing = State.accounts.find(function(a){ return a.name === newAcc.name; });
   if(!existing){
     State.accounts.push(newAcc);
@@ -792,6 +796,14 @@ function mergeAccountIntoStore(newAcc){
   existing.sheets.sort(function(a,b){ return a.roc < b.roc ? -1 : (a.roc>b.roc?1:0); });
   if(added > 0) markAccountDirty(existing.id);
   return { name:existing.name, isNew:false, added:added, total:existing.sheets.length, accId:existing.id };
+}
+/* 清掉已經進到 State 的空／未命名帳戶（例如舊資料或異常匯入） */
+function pruneEmptyAccounts(){
+  var before = State.accounts.length;
+  State.accounts = State.accounts.filter(function(a){
+    return a && a.name && String(a.name).trim() && a.sheets && a.sheets.length > 0;
+  });
+  return before - State.accounts.length;
 }
 /* 走勢線型：階梯圖（維持前值直到下次變動才跳）或曲線圖（點與點間平滑相連），
    由使用者在畫面上切換，套用在「持股數」與「累積平均成本」這類會持續維持前值的資料上。 */
@@ -1056,6 +1068,7 @@ async function connectDbDirectory(){
     try{ await idbSet('dbDirHandle', handle); }catch(e){ console.warn('儲存資料夾連結失敗（下次可能需要重新選擇）：', e); }
     setDbStatus('讀取中…');
     var r = await loadAllFromDirectory();
+    pruneEmptyAccounts();
     reassignAccountVisuals();
     renderAccountsList();
     rebuildIndex();
@@ -1187,6 +1200,7 @@ async function initDataSources(){
     try{
       var r = await loadRemoteDatabase();
       if(r){
+        pruneEmptyAccounts();
         reassignAccountVisuals();
         renderAccountsList();
         rebuildIndex();
@@ -1386,10 +1400,12 @@ function handleFiles(fileList){
         return;
       }
       var r = mergeAccountIntoStore(acc);
+      if(r.skipped) return;
       summaries.push(r.isNew
         ? (r.name+'：新帳戶，共 '+r.total+' 個日期')
         : (r.name+'：新增 '+r.added+' 個日期（原有的不變，目前共 '+r.total+' 個日期）'));
     });
+    pruneEmptyAccounts();
     reassignAccountVisuals();
     renderAccountsList();
     if(summaries.length) toast(summaries.join('；'));
@@ -1675,14 +1691,19 @@ function renderAccountsList(){
   var activeCount = getActiveAccounts().length;
   document.getElementById('accountsCard2Title').textContent = '3. 選擇要納入本次分析的帳戶（已選 '+activeCount+' ／ 共 '+State.accounts.length+' 個）';
   list.innerHTML = State.accounts.map(function(acc, idx){
-    var first = acc.sheets[0], last = acc.sheets[acc.sheets.length-1];
+    var sheetCount = (acc.sheets && acc.sheets.length) ? acc.sheets.length : 0;
+    var rangeText = sheetCount
+      ? (esc(isoToRocLabel(acc.sheets[0].iso))+' ～ '+esc(isoToRocLabel(acc.sheets[sheetCount-1].iso)))
+      : '<span class="muted">無日期資料（空帳戶）</span>';
     var included = acc.included !== false;
-    return '<div class="account-card"'+(included?'':' style="opacity:.5;"')+'>'+
+    var emptyHint = sheetCount === 0 ? ' style="opacity:.45; border-style:dashed;"' : (included?'':' style="opacity:.5;"');
+    var displayName = (acc.name && String(acc.name).trim()) ? acc.name : '（未命名帳戶）';
+    return '<div class="account-card"'+emptyHint+'>'+
       '<label class="chip" style="padding:6px 8px;" title="是否納入本次分析"><input type="checkbox" data-action="toggle-account-included" data-id="'+acc.id+'" '+(included?'checked':'')+'></label>'+
-      '<span class="swatch" style="background:'+acc.color+'"></span>'+
+      '<span class="swatch" style="background:'+(acc.color||'#888')+'"></span>'+
       '<div class="meta">'+
-        '<input class="name-input" data-action="rename-account" data-id="'+acc.id+'" value="'+esc(acc.name)+'">'+
-        '<div class="stat">'+acc.sheets.length+' 個日期工作表　'+esc(isoToRocLabel(first.iso))+' ～ '+esc(isoToRocLabel(last.iso))+'</div>'+
+        '<input class="name-input" data-action="rename-account" data-id="'+acc.id+'" value="'+esc(displayName)+'">'+
+        '<div class="stat">'+sheetCount+' 個日期工作表　'+rangeText+'</div>'+
       '</div>'+
       '<button class="btn btn-sm btn-danger" data-action="remove-account" data-id="'+acc.id+'" title="只從這次畫面移除，不會刪除資料庫檔案裡的資料">移除</button>'+
     '</div>';
@@ -3061,21 +3082,35 @@ async function exportGithubPack(){
     var zip = new JSZip();
     var holdingsFolder = zip.folder('holdings');
     var pricesFolder = zip.folder('prices');
+    var exportedAcc = 0, skippedAcc = 0;
     State.accounts.forEach(function(acc){
+      var hasName = !!(acc.name && String(acc.name).trim());
+      var hasSheets = !!(acc.sheets && acc.sheets.length > 0);
+      if(!hasName || !hasSheets){ skippedAcc++; return; }
       var key = sanitizeFileName(acc.name) + '.json';
       holdingsFolder.file(key, JSON.stringify(serializeOneAccount(acc)));
+      exportedAcc++;
     });
+    var exportedPrice = 0;
     Object.keys(State.priceCache).forEach(function(code){
+      var prices = State.priceCache[code] || {};
+      if(!code || Object.keys(prices).length === 0) return;
       var key = sanitizeFileName(code) + '.json';
-      pricesFolder.file(key, JSON.stringify({ code: code, prices: State.priceCache[code] || {} }));
+      pricesFolder.file(key, JSON.stringify({ code: code, prices: prices }));
+      exportedPrice++;
     });
+    if(exportedAcc === 0 && exportedPrice === 0){
+      toast('沒有可匯出的有效資料（帳戶需有名稱且至少一個日期；股價需至少一筆）。', true);
+      return;
+    }
     var blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'stocktrack_github_pack_' + (new Date().toISOString().slice(0,10)) + '.zip';
     a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
-    toast('已下載資料包（' + State.accounts.length + ' 個帳戶、' + Object.keys(State.priceCache).length + ' 檔股價）。解壓後覆蓋上傳到 GitHub 的 holdings／prices 即可。');
+    var skipMsg = skippedAcc > 0 ? '（已略過 '+skippedAcc+' 個空／未命名帳戶）' : '';
+    toast('已下載資料包（'+exportedAcc+' 個帳戶、'+exportedPrice+' 檔股價）'+skipMsg+'。解壓後覆蓋上傳到 GitHub 的 holdings／prices 即可。');
   }catch(err){
     console.error(err);
     toast('打包失敗：' + (err && err.message ? err.message : err), true);
