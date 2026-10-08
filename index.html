@@ -166,11 +166,79 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
 
 @media (max-width: 880px){
   .shell{flex-direction:column;}
-  .sidebar{width:100%; height:auto; position:relative; flex-direction:row;}
-  .brand{border-bottom:none;}
-  nav{flex-direction:row; overflow-x:auto;}
+  .sidebar{width:100%; height:auto; position:relative; flex-direction:column; z-index:20;}
+  .brand{border-bottom:1px solid rgba(255,255,255,.14); padding:14px 16px 10px;}
+  .brand-title{font-size:16px;}
+  .brand-sub{display:none;}
+  nav{flex-direction:row; overflow-x:auto; padding:8px 10px 12px; gap:6px; -webkit-overflow-scrolling:touch;}
+  .nav-item{flex:none; padding:10px 14px; font-size:14px; white-space:nowrap; border-radius:999px; background:rgba(255,255,255,.08);}
+  .nav-item.active{background:var(--brand);}
   .sidebar-foot{display:none;}
-  .topbar{position:static;}
+  .topbar{position:static; padding:14px 16px; gap:10px;}
+  .topbar h1{font-size:18px;}
+  .topbar .sub{font-size:13px; line-height:1.5;}
+  .view{padding:16px 14px 80px;}
+  .card{padding:14px 14px;}
+  .card h2{font-size:15.5px; line-height:1.4;}
+  .card h3{font-size:14px;}
+  .hint{font-size:13px; line-height:1.65;}
+  .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;}
+  .kpi{padding:14px 12px;}
+  .kpi .num{font-size:22px;}
+  .kpi .label{font-size:12.5px; line-height:1.4;}
+  .chart-wrap{height:300px;}
+  .chart-wrap.sm{height:220px;}
+  .filter-row{flex-direction:column; align-items:stretch; gap:10px;}
+  .filter-row .field{width:100% !important;}
+  .filter-row input, .filter-row select, .filter-row textarea{font-size:16px; padding:10px 12px;}
+  .btn{padding:10px 14px; font-size:14.5px; min-height:42px;}
+  .btn-sm{padding:8px 12px; font-size:13.5px; min-height:38px;}
+  .btn-row{gap:8px;}
+  .dropzone{padding:28px 14px;}
+  .dropzone .icon{font-size:28px;}
+  table{font-size:13.5px;}
+  th,td{padding:10px 8px;}
+  th{font-size:12.5px;}
+  .code-pill{font-size:13px; padding:2px 8px;}
+  .pill{font-size:12.5px; padding:3px 10px;}
+  .chip{padding:8px 12px; font-size:13.5px; min-height:38px;}
+  .account-card{flex-wrap:wrap; padding:12px;}
+  .account-card .name-input{font-size:15px;}
+  .account-card .stat{font-size:12.5px;}
+  .mini-grid{grid-template-columns:1fr; gap:12px;}
+  .mini-card{padding:14px;}
+  .mini-card .mini-head{font-size:14.5px;}
+  .mini-card .mini-sub{font-size:12.5px;}
+  .tabs{gap:2px; overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  .tab{padding:10px 14px; font-size:14px; white-space:nowrap;}
+  .modal{max-width:100%; max-height:90vh; border-radius:12px 12px 0 0; margin-top:auto;}
+  .modal-backdrop{align-items:flex-end; padding:0;}
+  .modal-head h3{font-size:16px;}
+  .modal-body{font-size:14.5px;}
+  .toast{font-size:14.5px; max-width:calc(100vw - 32px);}
+  .section-title{font-size:14px; margin:16px 0 10px;}
+  .empty-state{padding:36px 14px; font-size:15px;}
+  .empty-state .icon{font-size:36px;}
+  #singleLayerChips, #singleAccountChips, #compareChips{gap:8px;}
+  .checklist .chip{font-size:14px;}
+  /* 總覽重點：讓 KPI 與第一個同步布局區塊更醒目 */
+  #overviewKpis .kpi .num{font-size:24px;}
+  #section1ChartWrap{height:340px;}
+  #section3ChartWrap{height:340px;}
+  #singleChartWrap{height:340px;}
+  #compareChartWrap{height:340px;}
+}
+/* 小手機再放大一階可讀性（不影響桌面） */
+@media (max-width: 480px){
+  body{font-size:16px;}
+  .topbar h1{font-size:19px;}
+  .kpi-grid{grid-template-columns:1fr 1fr;}
+  .kpi .num{font-size:24px;}
+  .chart-wrap{height:320px;}
+  .chart-wrap.sm{height:240px;}
+  #section1ChartWrap, #section3ChartWrap, #singleChartWrap, #compareChartWrap{height:360px;}
+  th,td{padding:11px 8px; font-size:14px;}
+  .nav-item{font-size:13.5px; padding:9px 12px;}
 }
 </style>
 </head>
@@ -199,6 +267,7 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
         <div class="sub" id="topbarSub">上傳每個帳戶／券商的 Excel 檔案，開始分析</div>
       </div>
       <div class="btn-row">
+        <button class="btn btn-sm btn-primary" data-action="export-github-pack" title="把目前記憶體中的最新持股／股價打包成 holdings／prices，下載後可上傳回 GitHub">匯出 GitHub 資料包</button>
         <button class="btn btn-sm" data-action="export-snapshot">匯出快照</button>
         <button class="btn btn-sm" data-action="import-snapshot">載入快照</button>
         <input type="file" id="snapshotInput" accept="application/json" style="display:none;">
@@ -221,6 +290,12 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
         </div>
         <div id="dbStatus" class="hint" style="margin-top:8px;">正在嘗試自動載入線上資料庫（holdings／prices）…</div>
 
+        <div class="section-title">線上版如何永久保存新上傳的 Excel？</div>
+        <p class="hint">
+          網頁<strong>無法直接改寫 GitHub 上的檔案</strong>。上傳 Excel 後若要下次開啟仍看得到：
+          按右上角「<b>匯出 GitHub 資料包</b>」→ 下載 zip → 解壓後把裡面的 <code>holdings/</code>、<code>prices/</code> 覆蓋上傳到 GitHub → push 完成。
+          （「匯出快照」則是單一備份檔，下次用「載入快照」還原，不會更新 GitHub 上的分檔 JSON。）
+        </p>
         <div class="section-title">從舊版單一合併檔案搬家（一次性，之後就不需要了）</div>
         <p class="hint">如果你手上還有舊版工具產生的 <code>holdings_database.json</code> 或 <code>price_database.json</code>（一整包合併在一起的檔案），上傳到這裡就會自動拆成一帳戶一檔、一股票一檔，合併進上面連接的資料庫資料夾（規則一樣：只新增，不覆蓋既有資料）。</p>
         <div class="btn-row">
@@ -592,6 +667,7 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
 (function(){
 "use strict";
@@ -2876,6 +2952,7 @@ document.addEventListener('click', function(e){
     toast('已儲存「'+code3+'」的價格資料。');
     return;
   }
+  if(action==='export-github-pack'){ exportGithubPack(); return; }
   if(action==='export-snapshot'){ exportSnapshot(); return; }
   if(action==='import-snapshot'){ document.getElementById('snapshotInput').click(); return; }
 });
@@ -2968,6 +3045,41 @@ function exportSnapshot(){
   a.download = 'stocktrack_snapshot_'+(new Date().toISOString().slice(0,10))+'.json';
   a.click();
   toast('已匯出快照檔案。');
+}
+/* 匯出可直接覆蓋回 GitHub 的 holdings／prices 資料包（zip） */
+async function exportGithubPack(){
+  if(typeof JSZip === 'undefined'){
+    toast('壓縮套件（JSZip）未載入，請確認網路後重新整理頁面。', true);
+    return;
+  }
+  if(State.accounts.length === 0 && Object.keys(State.priceCache).length === 0){
+    toast('目前沒有可匯出的資料，請先載入或上傳。', true);
+    return;
+  }
+  try{
+    toast('正在打包 holdings／prices …');
+    var zip = new JSZip();
+    var holdingsFolder = zip.folder('holdings');
+    var pricesFolder = zip.folder('prices');
+    State.accounts.forEach(function(acc){
+      var key = sanitizeFileName(acc.name) + '.json';
+      holdingsFolder.file(key, JSON.stringify(serializeOneAccount(acc)));
+    });
+    Object.keys(State.priceCache).forEach(function(code){
+      var key = sanitizeFileName(code) + '.json';
+      pricesFolder.file(key, JSON.stringify({ code: code, prices: State.priceCache[code] || {} }));
+    });
+    var blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'stocktrack_github_pack_' + (new Date().toISOString().slice(0,10)) + '.zip';
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+    toast('已下載資料包（' + State.accounts.length + ' 個帳戶、' + Object.keys(State.priceCache).length + ' 檔股價）。解壓後覆蓋上傳到 GitHub 的 holdings／prices 即可。');
+  }catch(err){
+    console.error(err);
+    toast('打包失敗：' + (err && err.message ? err.message : err), true);
+  }
 }
 document.getElementById('legacyHoldingsInput').addEventListener('change', function(){ handleLegacyDbFiles(this.files); this.value=''; });
 document.getElementById('legacyPricesInput').addEventListener('change', function(){ handleLegacyDbFiles(this.files); this.value=''; });
