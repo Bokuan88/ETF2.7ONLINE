@@ -240,6 +240,13 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
   th,td{padding:11px 8px; font-size:14px;}
   .nav-item{font-size:13.5px; padding:9px 12px;}
 }
+
+.sl-searchbox{position:relative;}
+.sl-suggest{display:none; position:absolute; left:0; right:0; top:100%; margin-top:4px; background:#fff; border:1px solid var(--line-strong); border-radius:8px; box-shadow:0 6px 20px rgba(15,23,32,.14); z-index:20; max-height:320px; overflow-y:auto;}
+.sl-sug{display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:9px 12px; border:none; background:transparent; font-size:14px; cursor:pointer; border-bottom:1px solid var(--line);}
+.sl-sug:last-child{border-bottom:none;}
+.sl-sug:hover{background:var(--brand-soft);}
+.sl-cands{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
 </style>
 </head>
 <body>
@@ -253,6 +260,7 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
       <button class="nav-item active" data-view="import">📥 匯入資料</button>
       <button class="nav-item" data-view="overview">📊 總覽</button>
       <button class="nav-item" data-view="single">🔍 單一股票分析</button>
+      <button class="nav-item" data-view="lookup">🔎 股價查詢</button>
       <button class="nav-item" data-view="compare">📈 多股票比較</button>
       <button class="nav-item" data-view="alerts">⚠️ 警示中心 <span class="nav-badge" id="alertBadge" style="display:none;">0</span></button>
       <button class="nav-item" data-view="prices">💰 股價設定</button>
@@ -314,6 +322,16 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
           <div><strong>拖曳檔案到這裡</strong>，或點擊選擇（可一次選多個 .xlsx / .xls / .xlsm）</div>
         </div>
         <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm,.xlsb" multiple style="display:none;">
+      </div>
+
+      <div class="card">
+        <h2>1-B. 直接上傳各 ETF 原始下載檔（免整理）</h2>
+        <p class="hint">不想先用 Excel 整理成「民國日期工作表」時，可以直接把投信網站下載的原始檔拖進來（一次多個、不同 ETF 混在一起都可以）。系統會自動找出代碼／股數欄位、ETF 代號與資料日期，並併入對應帳戶——只新增還沒有的日期，不會動到舊資料。檔案裡找不到日期或判斷不出是哪一檔 ETF 時，才會跳出視窗請你確認，確認一次後就會記住。</p>
+        <div class="dropzone" id="rawDropzone">
+          <div class="icon">🗂️</div>
+          <div><strong>拖曳 ETF 原始檔到這裡</strong>，或點擊選擇（可一次選多個 .xlsx / .xls）</div>
+        </div>
+        <input type="file" id="rawFileInput" accept=".xlsx,.xls,.xlsm,.xlsb" multiple style="display:none;">
       </div>
 
       <div class="card" id="accountsCard" style="display:none;">
@@ -477,6 +495,10 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
 
       <div class="card" id="singleContent" style="display:none;">
         <h2 id="singleTitle"></h2>
+        <div class="hint" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px;">
+          <label class="chip"><input type="checkbox" id="singleAutoPrice" checked>自動補齊最新股價</label>
+          <span id="singleAutoPriceStatus"></span>
+        </div>
         <div class="chart-wrap" id="singleChartWrap"><canvas id="singleChart"></canvas></div>
         <div class="section-title">成本統計</div>
         <div class="grid kpi-grid" id="singleCostKpis"></div>
@@ -486,6 +508,69 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
       <div class="card empty-state" id="singleEmpty">
         <div class="icon">🔍</div>
         請先在上方輸入股票代碼
+      </div>
+    </section>
+
+    <!-- ============ 股價查詢 ============ -->
+    <section class="view" id="view-lookup">
+      <div class="card">
+        <div class="filter-row">
+          <div class="field sl-searchbox" style="flex:1; min-width:240px; max-width:420px;">
+            <label>股票代號或名稱</label>
+            <input type="text" id="slInput" autocomplete="off" placeholder="例如：2330、台積電、0050、NVDA">
+            <div class="sl-suggest" id="slSuggest"></div>
+          </div>
+          <div class="field" style="width:130px;">
+            <label>查詢區間</label>
+            <select id="slRange">
+              <option value="1M">近 1 個月</option>
+              <option value="3M">近 3 個月</option>
+              <option value="6M" selected>近 6 個月</option>
+              <option value="YTD">今年以來</option>
+              <option value="1Y">近 1 年</option>
+              <option value="3Y">近 3 年</option>
+              <option value="5Y">近 5 年</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" data-sl-act="run">查詢股價</button>
+        </div>
+        <div class="hint" id="slStatus">輸入代號（2330）或名稱（台積電）都可以，輸入時會自動列出符合的股票。台股（上市／上櫃／興櫃）最穩定；美股（如 NVDA）為盡力嘗試。</div>
+        <div class="sl-cands" id="slCandidates"></div>
+        <details style="margin-top:12px;">
+          <summary class="hint" style="cursor:pointer;">進階：FinMind Token（選填）／診斷連線</summary>
+          <div class="filter-row" style="margin-top:10px; margin-bottom:6px;">
+            <div class="field" style="width:320px;">
+              <label>FinMind Token（免費註冊可提高每小時查詢額度）</label>
+              <input type="text" id="slToken" placeholder="沒有也能用，留空即可">
+            </div>
+            <button class="btn btn-sm" data-sl-act="diag">診斷連線</button>
+          </div>
+          <div class="hint" id="slDiag"></div>
+        </details>
+      </div>
+
+      <div class="card" id="slResultCard" style="display:none;">
+        <div class="card-head">
+          <h2 id="slTitle">—</h2>
+          <div class="btn-row">
+            <button class="btn btn-sm btn-primary" data-sl-act="save" title="把這段收盤價寫入股價資料庫，供成本計算使用（既有日期不會被覆蓋）">存入股價資料庫</button>
+            <button class="btn btn-sm" data-sl-act="csv">下載 CSV</button>
+            <button class="btn btn-sm" id="slGotoSingle" data-sl-act="goto-single" style="display:none;">前往單一股票分析</button>
+          </div>
+        </div>
+        <div class="hint" id="slSourceNote" style="margin:0 0 12px;"></div>
+        <div class="grid kpi-grid" id="slKpis" style="margin-bottom:16px;"></div>
+        <div class="btn-row" style="margin-bottom:10px; align-items:center;">
+          <label class="chip"><input type="checkbox" id="slMA">顯示均線（20／60 日）</label>
+          <button class="btn btn-sm" data-sl-act="reset-zoom">重置縮放</button>
+          <span class="hint" style="margin:0;">滑鼠滾輪／雙指可縮放，拖曳可平移</span>
+        </div>
+        <div class="chart-wrap" id="slChartWrap"><canvas id="slChart"></canvas></div>
+        <h3 style="margin-top:18px;">近期日 K 明細</h3>
+        <div class="table-scroll" style="max-height:380px; overflow:auto;">
+          <table><thead id="slTableHead"></thead><tbody id="slTableBody"></tbody></table>
+        </div>
+        <div class="hint" id="slTableNote"></div>
       </div>
     </section>
 
@@ -613,7 +698,7 @@ select:focus, input:focus, textarea:focus{outline:2px solid var(--focus); outlin
 
       <div class="card">
         <h2>方法二：嘗試線上抓取（不保證成功）</h2>
-        <p class="hint">瀏覽器基於安全機制（CORS），大部分情況下無法直接向 Yahoo Finance 這類網站要資料——這是瀏覽器本身的限制，不是這個工具的臭蟲。工具會自動多方嘗試（直接連線＋兩個公開轉接服務），成功與否會依你當下的網路環境而定；抓不到時，請改用方法一或方法三。</p>
+        <p class="hint">現在會優先使用 FinMind 開放資料（台股，允許瀏覽器直接連線），失敗再依序嘗試 Yahoo Finance、stooq。想直接用名稱查股價走勢，請改用左側「🔎 股價查詢」。全部失敗時，請改用方法一或方法三。</p>
         <div class="filter-row">
           <div class="field" style="width:220px;">
             <label>股票代碼</label>
@@ -1654,6 +1739,7 @@ var VIEW_TITLES = {
   import: ['匯入資料','上傳每個帳戶／券商的 Excel 檔案，開始分析'],
   overview: ['總覽','跨帳戶持股與警示的整體狀況'],
   single: ['單一股票分析','選擇代碼與帳戶，檢視股價、持股與買進成本'],
+  lookup: ['股價查詢','輸入股票代號或名稱，直接查看股價走勢'],
   compare: ['多股票比較','比較不同股票的持股或投入成本趨勢'],
   alerts: ['警示中心','連續加碼與多帳戶同步買進偵測'],
   prices: ['股價設定','管理每檔股票的收盤價資料，用於成本計算']
@@ -1669,6 +1755,7 @@ function setView(view){
   if(view==='compare') renderCompareView();
   if(view==='alerts') renderAlertsView();
   if(view==='prices') renderPricesView();
+  if(view==='lookup') renderLookupView();
 }
 
 /* ============================================================
@@ -2184,6 +2271,7 @@ function renderSingleContent(){
   empty.style.display='none'; content.style.display='block';
   var info = State.codeIndex[code];
   document.getElementById('singleTitle').textContent = code+' '+(info.name||'') + ' — 股價與持股走勢';
+  autoUpdateSinglePrices(code);
 
   var startVal = document.getElementById('singleStartDate').value;
   var endVal = document.getElementById('singleEndDate').value;
@@ -2723,85 +2811,544 @@ function handlePriceReportFiles(fileList){
   });
 }
 
-/* 依代碼型態，猜測可能對應的 stooq 股票代號（stooq 對於直接瀏覽器連線的封鎖通常比 Yahoo 寬鬆，
-   拿來當作 Yahoo 失敗時的備援來源）。 */
+/*SL-BEGIN*/
+/* ============================================================
+   股價查詢：輸入「代號」或「名稱」→ 直接取得股價走勢
+   資料來源（依序嘗試，哪個通就用哪個）：
+     1. FinMind 開放資料 API（台股上市／上櫃／興櫃，允許瀏覽器直接連線，不需轉接服務）
+     2. Yahoo Finance（直接連線＋公開轉接服務，台股備援／美股主力）
+     3. stooq（最後備援）
+   股票名稱清單：FinMind TaiwanStockInfo；失敗時改用證交所／櫃買中心開放資料。
+============================================================ */
+var SL_LIST_KEY = 'stocktrack_stocklist_v1';
+var SL_TOKEN_KEY = 'stocktrack_finmind_token';
+var SL = { list:null, loading:null, listError:'', last:null, showMA:false, pending:0 };
+
+function slIso(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function slIsTwCode(c){ return /^\d{4,6}[A-Za-z]?$/.test(String(c||'').trim()); }
+function slR2(n){ return Math.round(n*100)/100; }
+function slErrMsg(e){
+  if(!e) return '未知錯誤';
+  if(e.name === 'AbortError') return '連線逾時';
+  var m = String(e.message || e);
+  if(/Failed to fetch|NetworkError|Load failed|fetch failed/i.test(m)) return '連線失敗（網路不通，或對方不允許瀏覽器直接存取）';
+  return m;
+}
+async function slFetchRaw(url, timeoutMs){
+  var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, timeoutMs || 15000) : null;
+  try{
+    var res = await fetch(url, { mode:'cors', signal: ctrl ? ctrl.signal : undefined });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return await res.text();
+  } finally { if(timer) clearTimeout(timer); }
+}
+async function slFetchJson(url, timeoutMs){
+  var text = await slFetchRaw(url, timeoutMs);
+  try{ return JSON.parse(text); }
+  catch(e){ throw new Error('回應不是有效的 JSON'); }
+}
+function slPack(source, rows){
+  var data = {};
+  rows.forEach(function(r){ data[r.date] = r.close; });
+  return { ok:true, source:source, rows:rows, data:data };
+}
+
+/* ---------- FinMind ---------- */
+function slFinMindToken(){ try{ return localStorage.getItem(SL_TOKEN_KEY) || ''; }catch(e){ return ''; } }
+function slFinMindUrl(params){
+  var q = Object.keys(params).map(function(k){ return k+'='+encodeURIComponent(params[k]); }).join('&');
+  var t = slFinMindToken();
+  if(t) q += '&token='+encodeURIComponent(t);
+  return 'https://api.finmindtrade.com/api/v4/data?'+q;
+}
+function slCheckFinMindStatus(json){
+  if(json && json.status && Number(json.status) !== 200){
+    if(Number(json.status) === 402) throw new Error('FinMind 查詢次數已達上限（可在頁面下方填入免費 Token 提高額度，或稍後再試）');
+    throw new Error('FinMind 回應：'+(json.msg || json.status));
+  }
+}
+function slParseFinMindPrice(json){
+  slCheckFinMindStatus(json);
+  var arr = json && json.data;
+  if(!Array.isArray(arr)) throw new Error('回應格式不符');
+  var rows = [];
+  arr.forEach(function(r){
+    var date = String(r.date || '').slice(0,10);
+    var close = Number(r.close);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date) || !(close > 0)) return;
+    rows.push({ date:date, open:Number(r.open)||0, high:Number(r.max)||0, low:Number(r.min)||0, close:slR2(close), volume:Number(r.Trading_Volume)||0 });
+  });
+  rows.sort(function(a,b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  if(!rows.length) throw new Error('查無此代碼在該區間的資料');
+  return rows;
+}
+function slParseFinMindInfo(json){
+  slCheckFinMindStatus(json);
+  var arr = json && json.data;
+  if(!Array.isArray(arr)) throw new Error('回應格式不符');
+  var seen = {}, out = [];
+  var marketName = { twse:'上市', tpex:'上櫃', emerging:'興櫃' };
+  arr.forEach(function(r){
+    var code = String(r.stock_id || '').trim();
+    var name = String(r.stock_name || '').trim();
+    if(!code || !name || seen[code]) return;
+    seen[code] = 1;
+    out.push({ code:code, name:name, market:marketName[r.type] || String(r.type || ''), industry:String(r.industry_category || '') });
+  });
+  return out;
+}
+function slParseOfficialList(json, market){
+  if(!Array.isArray(json)) return [];
+  var out = [], seen = {};
+  json.forEach(function(r){
+    var code = String(r.Code || r.SecuritiesCompanyCode || '').trim();
+    var name = String(r.Name || r.CompanyName || '').trim();
+    if(!code || !name || seen[code]) return;
+    seen[code] = 1;
+    out.push({ code:code, name:name, market:market, industry:'' });
+  });
+  return out;
+}
+async function fetchFinMind(code, startDate, endDate){
+  if(!slIsTwCode(code)) return { ok:false, source:'FinMind', error:'非台股代碼，略過' };
+  try{
+    var json = await slFetchJson(slFinMindUrl({
+      dataset:'TaiwanStockPrice', data_id:String(code).trim().toUpperCase(),
+      start_date:slIso(startDate), end_date:slIso(endDate)
+    }), 20000);
+    return slPack('FinMind 開放資料（台股 '+code+'）', slParseFinMindPrice(json));
+  }catch(e){ return { ok:false, source:'FinMind', error:slErrMsg(e) }; }
+}
+
+/* ---------- Yahoo ---------- */
+function slParseYahoo(json){
+  var result = json && json.chart && json.chart.result && json.chart.result[0];
+  var q = result && result.indicators && result.indicators.quote && result.indicators.quote[0];
+  if(!result || !result.timestamp || !q || !q.close) throw new Error('查無資料');
+  var rows = [];
+  for(var i = 0; i < result.timestamp.length; i++){
+    if(q.close[i] == null) continue;
+    var d = new Date(result.timestamp[i]*1000);
+    var iso = d.getUTCFullYear()+'-'+pad2(d.getUTCMonth()+1)+'-'+pad2(d.getUTCDate());
+    rows.push({ date:iso, open:slR2(q.open && q.open[i] || 0), high:slR2(q.high && q.high[i] || 0), low:slR2(q.low && q.low[i] || 0), close:slR2(q.close[i]), volume:Number(q.volume && q.volume[i]) || 0 });
+  }
+  if(!rows.length) throw new Error('查無資料');
+  return rows;
+}
+function slYahooTicker(code){ return String(code).trim().replace(/\s+US$/i, ''); }
+async function fetchYahoo(code, startDate, endDate){
+  var t1 = Math.floor(startDate.getTime()/1000) - 86400;
+  var t2 = Math.floor(endDate.getTime()/1000) + 86400;
+  var tw = slIsTwCode(code);
+  var base = slYahooTicker(code);
+  var suffixes = tw ? ['.TW','.TWO'] : [''];
+  var lastErr = '';
+  for(var s = 0; s < suffixes.length; s++){
+    var url = 'https://query1.finance.yahoo.com/v8/finance/chart/'+encodeURIComponent(base+suffixes[s])+'?period1='+t1+'&period2='+t2+'&interval=1d';
+    var variants = [
+      url,
+      'https://corsproxy.io/?url='+encodeURIComponent(url),
+      'https://api.allorigins.win/raw?url='+encodeURIComponent(url),
+      'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url)
+    ];
+    var attempts = variants.map(function(u){
+      return slFetchJson(u, 9000).then(slParseYahoo);
+    });
+    try{
+      var rows = await (typeof Promise.any === 'function' ? Promise.any(attempts) : attempts[0]);
+      return slPack('Yahoo Finance（'+base+suffixes[s]+'）', rows);
+    }catch(e){
+      var first = (e && e.errors && e.errors[0]) || e;
+      lastErr = slErrMsg(first);
+    }
+  }
+  return { ok:false, source:'Yahoo Finance', error:lastErr || '失敗' };
+}
+
+/* ---------- stooq ---------- */
 function guessStooqSymbols(code){
   var syms = [];
   if(/^\d{4,6}$/.test(code)) syms.push(code.toLowerCase()+'.tw');
-  var mUS = code.match(/^([A-Za-z.]+)\s*(US)?$/i);
+  var mUS = String(code).match(/^([A-Za-z.]+)\s*(US)?$/i);
   if(mUS && mUS[1]) syms.push(mUS[1].toLowerCase()+'.us');
   return syms;
+}
+function slParseStooq(text){
+  var t = String(text || '').trim();
+  if(!t || /^No data|Not Found|exceeded|<html/i.test(t)) throw new Error('查無資料');
+  var lines = t.split(/\r?\n/);
+  var rows = [];
+  for(var l = 1; l < lines.length; l++){
+    var p = lines[l].split(',');
+    if(p.length < 5) continue;
+    var iso = p[0].trim(), close = Number(p[4]);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(iso) && close > 0)
+      rows.push({ date:iso, open:Number(p[1])||0, high:Number(p[2])||0, low:Number(p[3])||0, close:slR2(close), volume:Number(p[5])||0 });
+  }
+  if(!rows.length) throw new Error('查無資料');
+  return rows;
 }
 async function fetchStooq(code, startDate, endDate){
   var d1 = startDate.getFullYear()+pad2(startDate.getMonth()+1)+pad2(startDate.getDate());
   var d2 = endDate.getFullYear()+pad2(endDate.getMonth()+1)+pad2(endDate.getDate());
-  var syms = guessStooqSymbols(code);
-  for(var i=0;i<syms.length;i++){
-    var url = 'https://stooq.com/q/d/l/?s='+syms[i]+'&d1='+d1+'&d2='+d2+'&i=d';
+  var syms = guessStooqSymbols(code), lastErr = '無對應代號';
+  for(var i = 0; i < syms.length; i++){
     try{
-      var res = await fetch(url, {mode:'cors'});
-      if(!res.ok) continue;
-      var text = await res.text();
-      if(!text || /^No data|Not Found|exceeded/i.test(text.trim())) continue;
-      var lines = text.trim().split('\n');
-      if(lines.length < 2) continue;
-      var map = {};
-      for(var l=1;l<lines.length;l++){
-        var parts = lines[l].split(',');
-        if(parts.length < 5) continue;
-        var iso = parts[0].trim();
-        var close = toNum(parts[4]);
-        if(/^\d{4}-\d{2}-\d{2}$/.test(iso) && close > 0) map[iso] = close;
-      }
-      if(Object.keys(map).length > 0) return { ok:true, source:'stooq（'+syms[i]+'）', data:map };
-    }catch(e){ /* 換下一個猜測代號 */ }
+      var text = await slFetchRaw('https://stooq.com/q/d/l/?s='+syms[i]+'&d1='+d1+'&d2='+d2+'&i=d', 10000);
+      return slPack('stooq（'+syms[i]+'）', slParseStooq(text));
+    }catch(e){ lastErr = slErrMsg(e); }
   }
-  return { ok:false };
+  return { ok:false, source:'stooq', error:lastErr };
 }
-async function fetchYahoo(code, startDate, endDate){
-  var t1 = Math.floor(startDate.getTime()/1000) - 86400;
-  var t2 = Math.floor(endDate.getTime()/1000) + 86400;
-  var suffixes = ['.TW','.TWO',''];
-  for(var s=0;s<suffixes.length;s++){
-    var url = 'https://query1.finance.yahoo.com/v8/finance/chart/'+code+suffixes[s]+'?period1='+t1+'&period2='+t2+'&interval=1d';
-    var attempts = [
-      { url:url, mode:'direct' },
-      { url:'https://corsproxy.io/?url='+encodeURIComponent(url), mode:'proxy' },
-      { url:'https://api.allorigins.win/raw?url='+encodeURIComponent(url), mode:'proxy' },
-      { url:'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url), mode:'proxy' }
-    ];
-    for(var a=0;a<attempts.length;a++){
-      try{
-        var res = await fetch(attempts[a].url, {mode:'cors'});
-        if(!res.ok) continue;
-        var json = await res.json();
-        var result = json && json.chart && json.chart.result && json.chart.result[0];
-        if(!result) continue;
-        var ts = result.timestamp;
-        var closes = result.indicators && result.indicators.quote && result.indicators.quote[0] && result.indicators.quote[0].close;
-        if(!ts || !closes) continue;
-        var map = {};
-        for(var i=0;i<ts.length;i++){
-          if(closes[i]==null) continue;
-          var d = new Date(ts[i]*1000);
-          var iso = d.getUTCFullYear()+'-'+pad2(d.getUTCMonth()+1)+'-'+pad2(d.getUTCDate());
-          map[iso] = Math.round(closes[i]*100)/100;
-        }
-        if(Object.keys(map).length > 0) return { ok:true, source:'Yahoo Finance（'+code+suffixes[s]+'，'+attempts[a].mode+'）', data:map };
-      }catch(e){ /* 換下一個嘗試 */ }
-    }
-  }
-  return { ok:false };
-}
-/* 依序嘗試多個線上來源；瀏覽器的 CORS 安全機制會依你當下的網路環境決定成敗，
-   這裡盡量多方嘗試，但無法保證每次都成功——這是瀏覽器本身的限制。 */
+
+/* 依序嘗試多個來源；回傳 {ok, source, data(日期→收盤價), rows(完整日K), tried(每個來源的結果)} */
 async function fetchPriceOnline(code, startDate, endDate){
-  var y = await fetchYahoo(code, startDate, endDate);
-  if(y.ok) return y;
-  var s = await fetchStooq(code, startDate, endDate);
-  if(s.ok) return s;
-  return { ok:false };
+  var tried = [];
+  var steps = slIsTwCode(code) ? [fetchFinMind, fetchYahoo, fetchStooq] : [fetchYahoo, fetchStooq];
+  for(var i = 0; i < steps.length; i++){
+    var r = await steps[i](code, startDate, endDate);
+    if(r.ok){ r.tried = tried; return r; }
+    tried.push({ source:r.source, error:r.error });
+  }
+  return { ok:false, tried:tried };
 }
+function slTriedText(tried){
+  return (tried || []).map(function(t){ return t.source+'：'+t.error; }).join('；');
+}
+
+/* ---------- 股票名稱清單與搜尋 ---------- */
+async function slLoadStockList(){
+  if(SL.list) return SL.list;
+  if(SL.loading) return SL.loading;
+  SL.loading = (async function(){
+    try{
+      var raw = localStorage.getItem(SL_LIST_KEY);
+      if(raw){
+        var o = JSON.parse(raw);
+        if(o && Array.isArray(o.list) && o.list.length > 500 && (Date.now() - o.ts) < 7*86400000){ SL.list = o.list; SL.listError = ''; return SL.list; }
+      }
+    }catch(e){}
+    var list = null, errs = [];
+    try{
+      list = slParseFinMindInfo(await slFetchJson(slFinMindUrl({ dataset:'TaiwanStockInfo' }), 20000));
+      if(list.length < 500) throw new Error('清單內容異常');
+    }catch(e){ errs.push('FinMind：'+slErrMsg(e)); list = null; }
+    if(!list){
+      var rs = await Promise.all([
+        slFetchJson('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL', 20000).then(function(j){ return slParseOfficialList(j, '上市'); }).catch(function(e){ errs.push('證交所：'+slErrMsg(e)); return []; }),
+        slFetchJson('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes', 20000).then(function(j){ return slParseOfficialList(j, '上櫃'); }).catch(function(e){ errs.push('櫃買中心：'+slErrMsg(e)); return []; })
+      ]);
+      var merged = rs[0].concat(rs[1]);
+      if(merged.length > 300) list = merged;
+    }
+    if(list){
+      SL.list = list; SL.listError = '';
+      try{ localStorage.setItem(SL_LIST_KEY, JSON.stringify({ ts:Date.now(), list:list })); }catch(e){}
+    }else{
+      SL.listError = errs.join('；');
+    }
+    return list || [];
+  })();
+  try{ return await SL.loading; } finally { SL.loading = null; }
+}
+function slAllEntries(){
+  var out = [], seen = {};
+  (SL.list || []).forEach(function(e){ seen[e.code.toLowerCase()] = 1; out.push(e); });
+  Object.keys(State.codeIndex || {}).forEach(function(c){
+    if(seen[c.toLowerCase()]) return;
+    out.push({ code:c, name:(State.codeIndex[c].name || ''), market:'持股', industry:'' });
+  });
+  return out;
+}
+function slNorm(s){ return String(s || '').toLowerCase().replace(/[\s\u3000]+/g, ''); }
+function slSearch(q, limit){
+  var ql = slNorm(q);
+  if(!ql) return [];
+  var scored = [];
+  slAllEntries().forEach(function(e){
+    var code = slNorm(e.code), name = slNorm(e.name), s = -1;
+    if(code === ql) s = 0;
+    else if(name === ql) s = 1;
+    else if(code.indexOf(ql) === 0) s = 2;
+    else if(name.indexOf(ql) === 0) s = 3;
+    else if(name.indexOf(ql) >= 0) s = 4;
+    else if(code.indexOf(ql) >= 0) s = 5;
+    if(s >= 0) scored.push({ e:e, s:s });
+  });
+  scored.sort(function(a,b){ return a.s - b.s || a.e.code.length - b.e.code.length || (a.e.code < b.e.code ? -1 : 1); });
+  var res = scored.map(function(x){ x.e._s = x.s; return x.e; });
+  return limit ? res.slice(0, limit) : res;
+}
+/* 把使用者輸入解析成「一檔股票」；有多個可能時回傳 candidates 讓使用者挑 */
+function slResolve(q){
+  q = String(q || '').trim();
+  if(!q) return { entry:null };
+  var all = slAllEntries();
+  var first = q.split(/[\s\u3000]+/)[0];
+  var i, ql = q.toLowerCase(), fl = first.toLowerCase();
+  for(i = 0; i < all.length; i++){ if(all[i].code.toLowerCase() === ql) return { entry:all[i] }; }
+  for(i = 0; i < all.length; i++){ if(all[i].code.toLowerCase() === fl) return { entry:all[i] }; }
+  var hits = slSearch(q, 30);
+  if(hits.length === 1) return { entry:hits[0] };
+  if(hits.length > 1 && hits[0]._s <= 1 && (hits.length < 2 || hits[1]._s > 1)) return { entry:hits[0] };
+  if(hits.length > 1) return { candidates:hits.slice(0, 12) };
+  if(slIsTwCode(first)) return { entry:{ code:first.toUpperCase(), name:'', market:'', industry:'' } };
+  var mUS = q.match(/^([A-Za-z][A-Za-z.\-]{0,5})(?:[\s\u3000]+US)?$/i);
+  if(mUS) return { entry:{ code:mUS[1].toUpperCase(), name:'', market:'美股', industry:'' } };
+  return { entry:null };
+}
+
+/* ---------- 區間／均線／統計 ---------- */
+function slRangeStart(key, now){
+  var d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if(key === '1M') d.setMonth(d.getMonth()-1);
+  else if(key === '3M') d.setMonth(d.getMonth()-3);
+  else if(key === '6M') d.setMonth(d.getMonth()-6);
+  else if(key === '1Y') d.setFullYear(d.getFullYear()-1);
+  else if(key === '3Y') d.setFullYear(d.getFullYear()-3);
+  else if(key === '5Y') d.setFullYear(d.getFullYear()-5);
+  else if(key === 'YTD') d = new Date(now.getFullYear(), 0, 1);
+  else d.setMonth(d.getMonth()-6);
+  return d;
+}
+function slMovingAvg(rows, n){
+  var out = [], sum = 0;
+  for(var i = 0; i < rows.length; i++){
+    sum += rows[i].close;
+    if(i >= n) sum -= rows[i-n].close;
+    out.push(i >= n-1 ? { x:rows[i].date, y:slR2(sum/n) } : null);
+  }
+  return out.filter(function(p){ return p; });
+}
+function slStats(rows){
+  var last = rows[rows.length-1], prev = rows.length > 1 ? rows[rows.length-2] : null, first = rows[0];
+  var hi = rows[0], lo = rows[0];
+  rows.forEach(function(r){ if(r.close > hi.close) hi = r; if(r.close < lo.close) lo = r; });
+  return {
+    last:last, prev:prev, first:first, hi:hi, lo:lo,
+    dayChg: prev ? last.close - prev.close : 0,
+    dayPct: prev ? (last.close/prev.close - 1)*100 : 0,
+    rangePct: (last.close/first.close - 1)*100
+  };
+}
+/*SL-END*/
+
+/*SL-UI-BEGIN*/
+function slEl(id){ return document.getElementById(id); }
+function slSetStatus(html, warn){
+  var el = slEl('slStatus');
+  el.innerHTML = html || '';
+  el.style.color = warn ? 'var(--sell)' : '';
+}
+function slHideSuggest(){ var s = slEl('slSuggest'); s.style.display = 'none'; s.innerHTML = ''; }
+function slEntryLabel(e){ return (e.code+' '+(e.name || '')).trim()+(e.market ? '（'+e.market+'）' : ''); }
+function slShowSuggest(){
+  var q = slEl('slInput').value.trim();
+  var box = slEl('slSuggest');
+  if(!q){ slHideSuggest(); return; }
+  var hits = slSearch(q, 8);
+  if(!hits.length){ slHideSuggest(); return; }
+  box.innerHTML = hits.map(function(e){
+    return '<button type="button" class="sl-sug" data-sl-pick="'+esc(e.code)+'">'+
+      '<span class="tnum">'+esc(e.code)+'</span> <span>'+esc(e.name || '')+'</span>'+
+      '<span class="muted" style="margin-left:auto;font-size:12px;">'+esc(e.market + (e.industry ? '・'+e.industry : ''))+'</span></button>';
+  }).join('');
+  box.style.display = 'block';
+}
+function slChgClass(v){ return v > 0 ? 'sell-text' : (v < 0 ? 'buy-text' : 'muted'); } // 台股慣例：紅漲綠跌
+function slChgText(v, pct){
+  var arrow = v > 0 ? '▲' : (v < 0 ? '▼' : '');
+  return arrow+' '+fmtPrice(Math.abs(v))+'（'+(pct > 0 ? '+' : '')+(Math.round(pct*100)/100).toFixed(2)+'%）';
+}
+function slSaveKey(entry){
+  var keys = Object.keys(State.codeIndex || {});
+  for(var i = 0; i < keys.length; i++){ if(keys[i].toLowerCase() === entry.code.toLowerCase()) return keys[i]; }
+  return entry.code;
+}
+
+async function slRun(queryOverride){
+  var input = slEl('slInput');
+  if(typeof queryOverride === 'string') input.value = queryOverride;
+  var q = input.value.trim();
+  slHideSuggest();
+  if(!q){ toast('請輸入股票代號或名稱', true); return; }
+  var token = ++SL.pending;
+  slEl('slCandidates').innerHTML = '';
+  slSetStatus('正在載入股票名稱清單…');
+  await slLoadStockList();
+  if(token !== SL.pending) return;
+  var r = slResolve(q);
+  if(r.candidates){
+    slSetStatus('找到多檔符合「'+esc(q)+'」的股票，請點選一檔：');
+    slEl('slCandidates').innerHTML = r.candidates.map(function(e){
+      return '<button type="button" class="btn btn-sm" data-sl-pick="'+esc(e.code)+'">'+esc(slEntryLabel(e))+'</button>';
+    }).join(' ');
+    return;
+  }
+  if(!r.entry){
+    var why = (!SL.list || !SL.list.length) && !/^[A-Za-z0-9.\- ]+$/.test(q)
+      ? '股票名稱清單載入失敗（'+esc(SL.listError || '未知原因')+'），目前無法用「名稱」搜尋，請改輸入股票代號。'
+      : '找不到「'+esc(q)+'」。請確認代號或名稱是否正確。';
+    slSetStatus(why, true);
+    return;
+  }
+  var entry = r.entry;
+  var rangeKey = slEl('slRange').value;
+  var end = new Date(), start = slRangeStart(rangeKey, end);
+  slSetStatus('正在查詢 '+esc(slEntryLabel(entry))+' 的股價走勢…（依序嘗試 FinMind、Yahoo、stooq）');
+  var res = await fetchPriceOnline(entry.code, start, end);
+  if(token !== SL.pending) return;
+  if(!res.ok){
+    slEl('slResultCard').style.display = 'none';
+    slSetStatus('查詢「'+esc(slEntryLabel(entry))+'」失敗。各來源結果：'+esc(slTriedText(res.tried))+'。可按下方「診斷連線」看是哪個來源被擋，或稍後再試。', true);
+    return;
+  }
+  SL.last = { entry:entry, rows:res.rows, source:res.source, rangeKey:rangeKey };
+  slSetStatus('');
+  slRender();
+}
+function slRender(){
+  var L = SL.last; if(!L) return;
+  var rows = L.rows, st = slStats(rows), e = L.entry;
+  slEl('slResultCard').style.display = '';
+  slEl('slTitle').textContent = e.code+(e.name ? ' '+e.name : '')+(e.market ? '（'+e.market+'）' : '');
+  slEl('slSourceNote').textContent = '資料來源：'+L.source+'｜共 '+rows.length+' 個交易日（'+rows[0].date+' ～ '+rows[rows.length-1].date+'）｜紅漲綠跌（台股慣例）';
+  var held = State.codeIndex && State.codeIndex[slSaveKey(e)];
+  slEl('slGotoSingle').style.display = held ? '' : 'none';
+  slEl('slKpis').innerHTML =
+    kpi(fmtPrice(st.last.close), '最新收盤（'+st.last.date+'）')+
+    '<div class="kpi"><div class="num tnum '+slChgClass(st.dayChg)+'" style="font-size:19px;">'+(st.prev ? slChgText(st.dayChg, st.dayPct) : '—')+'</div><div class="label">較前一交易日</div></div>'+
+    '<div class="kpi"><div class="num tnum '+slChgClass(st.rangePct)+'" style="font-size:19px;">'+((st.rangePct>0?'+':'')+st.rangePct.toFixed(2))+'%</div><div class="label">區間漲跌（首日→最新）</div></div>'+
+    kpi(fmtPrice(st.hi.close), '區間最高收盤（'+st.hi.date+'）')+
+    kpi(fmtPrice(st.lo.close), '區間最低收盤（'+st.lo.date+'）');
+  var tw = slIsTwCode(e.code);
+  var recent = rows.slice(-60).reverse();
+  var body = recent.map(function(r){
+    var idx = rows.indexOf(r), prev = idx > 0 ? rows[idx-1] : null;
+    var chg = prev ? r.close - prev.close : 0;
+    var vol = tw ? Math.round(r.volume/1000) : r.volume;
+    return '<tr><td>'+esc(r.date)+'</td><td class="num-cell">'+(r.open?fmtPrice(r.open):'—')+'</td><td class="num-cell">'+(r.high?fmtPrice(r.high):'—')+'</td><td class="num-cell">'+(r.low?fmtPrice(r.low):'—')+'</td><td class="num-cell"><b>'+fmtPrice(r.close)+'</b></td><td class="num-cell '+slChgClass(chg)+'">'+(prev ? (chg>0?'+':'')+fmtPrice(chg) : '—')+'</td><td class="num-cell">'+fmtInt(vol)+'</td></tr>';
+  }).join('');
+  slEl('slTableHead').innerHTML = '<tr><th>日期</th><th class="num-cell">開</th><th class="num-cell">高</th><th class="num-cell">低</th><th class="num-cell">收</th><th class="num-cell">漲跌</th><th class="num-cell">成交量'+(tw?'（張）':'')+'</th></tr>';
+  slEl('slTableBody').innerHTML = body;
+  slEl('slTableNote').textContent = rows.length > 60 ? '表格僅列出最近 60 個交易日，完整資料請用「下載 CSV」。' : '';
+  slDrawChart();
+}
+function slDrawChart(){
+  var L = SL.last; if(!L) return;
+  var rows = L.rows;
+  var wrap = slEl('slChartWrap');
+  wrap.innerHTML = '<canvas id="slChart"></canvas>';
+  safeRenderChart('slChartWrap', 'slChart', function(){
+    var datasets = [{
+      type:'line', label:'收盤價', data:rows.map(function(r){ return { x:r.date, y:r.close }; }),
+      borderColor:'#1F6F78', backgroundColor:hexAlpha('#1F6F78', 0.08), fill:true,
+      borderWidth:1.8, pointRadius:rows.length <= 40 ? 2.5 : 0, pointHoverRadius:4, tension:0
+    }];
+    if(SL.showMA){
+      if(rows.length >= 20) datasets.push({ type:'line', label:'20日均線', data:slMovingAvg(rows,20), borderColor:'#B9752A', borderWidth:1.3, pointRadius:0, borderDash:[5,3] });
+      if(rows.length >= 60) datasets.push({ type:'line', label:'60日均線', data:slMovingAvg(rows,60), borderColor:'#C1495B', borderWidth:1.3, pointRadius:0, borderDash:[2,3] });
+    }
+    State.chartInstances.slChart = new Chart(slEl('slChart'), {
+      data:{ datasets:datasets },
+      options:{
+        responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
+        plugins:{ legend:{ position:'bottom' }, zoom:zoomPluginOptions(true), tooltip:{ callbacks:{
+          title:function(items){ return items.length ? new Date(items[0].parsed.x).toISOString().slice(0,10) : ''; },
+          label:function(it){ return it.dataset.label+'：'+fmtPrice(it.parsed.y); }
+        } } },
+        scales:{
+          x:{ type:'time', time:{ unit: rows.length > 400 ? 'quarter' : (rows.length > 120 ? 'month' : 'week'), tooltipFormat:'yyyy-MM-dd' }, grid:{ color:'#EEF0F3' } },
+          y:{ title:{ display:true, text:'股價（元）' } }
+        }
+      }
+    });
+  });
+}
+function slCsv(){
+  var L = SL.last; if(!L) return;
+  var lines = ['date,open,high,low,close,volume'].concat(L.rows.map(function(r){ return [r.date,r.open,r.high,r.low,r.close,r.volume].join(','); }));
+  var blob = new Blob(['\ufeff'+lines.join('\n')], { type:'text/csv;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = L.entry.code+'_price.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+}
+function slSaveToDb(){
+  var L = SL.last; if(!L) return;
+  var key = slSaveKey(L.entry);
+  var map = {}; L.rows.forEach(function(r){ map[r.date] = r.close; });
+  var added = mergePriceData(key, map);
+  savePriceCache();
+  if(State.ui.priceTableCode) renderPriceTable(State.ui.priceTableCode);
+  toast(added > 0 ? '已把「'+key+'」新增 '+added+' 筆收盤價存入股價資料庫（既有日期不覆蓋）。' : '「'+key+'」這段期間的收盤價資料庫都已經有了，沒有新增。');
+}
+async function slDiagnose(){
+  var out = slEl('slDiag');
+  out.innerHTML = '正在測試各資料來源…';
+  var end = new Date(), start = slRangeStart('1M', end);
+  var tests = [
+    ['FinMind 股價（2330）', function(){ return fetchFinMind('2330', start, end); }],
+    ['FinMind 名稱清單', function(){ return slFetchJson(slFinMindUrl({ dataset:'TaiwanStockInfo' }), 20000).then(function(j){ return { ok:true, source:'共 '+slParseFinMindInfo(j).length+' 檔' }; }).catch(function(e){ return { ok:false, error:slErrMsg(e) }; }); }],
+    ['證交所開放資料（名稱清單）', function(){ return slFetchJson('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL', 20000).then(function(j){ return { ok:true, source:'共 '+slParseOfficialList(j,'上市').length+' 檔' }; }).catch(function(e){ return { ok:false, error:slErrMsg(e) }; }); }],
+    ['Yahoo Finance（2330.TW）', function(){ return fetchYahoo('2330', start, end); }]
+  ];
+  var lines = [];
+  for(var i = 0; i < tests.length; i++){
+    var t0 = Date.now();
+    var r = await tests[i][1]();
+    lines.push((r.ok ? '✅ ' : '❌ ')+esc(tests[i][0])+'：'+esc(r.ok ? (r.source || '成功') : r.error)+'（'+(Date.now()-t0)+' ms）');
+    out.innerHTML = lines.join('<br>')+(i < tests.length-1 ? '<br>測試中…' : '');
+  }
+}
+function renderLookupView(){
+  var tk = slEl('slToken'); if(tk && !tk.value) tk.value = slFinMindToken();
+  slLoadStockList().then(function(list){
+    if(!list.length && SL.listError) slSetStatus('提醒：股票名稱清單目前載入失敗（'+esc(SL.listError)+'），仍可直接輸入代號查詢。', true);
+  });
+}
+(function slBind(){
+  var input = slEl('slInput');
+  var timer = null;
+  input.addEventListener('input', function(){
+    clearTimeout(timer);
+    timer = setTimeout(function(){ slLoadStockList().then(slShowSuggest); }, 120);
+  });
+  input.addEventListener('focus', function(){ slLoadStockList().then(slShowSuggest); });
+  input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); slRun(); } });
+  slEl('slRange').addEventListener('change', function(){ if(slEl('slInput').value.trim()) slRun(); });
+  slEl('slMA').addEventListener('change', function(){ SL.showMA = this.checked; this.closest('.chip').classList.toggle('checked', this.checked); slDrawChart(); });
+  slEl('slToken').addEventListener('change', function(){ try{ localStorage.setItem(SL_TOKEN_KEY, this.value.trim()); toast('已儲存 FinMind Token（只存在這台瀏覽器）。'); }catch(e){} });
+  document.addEventListener('click', function(e){
+    var pick = e.target.closest('[data-sl-pick]');
+    if(pick){
+      var code = pick.dataset.slPick;
+      var hit = slAllEntries().filter(function(x){ return x.code === code; })[0];
+      slEl('slInput').value = hit ? hit.code+' '+(hit.name || '') : code;
+      slRun();
+      return;
+    }
+    var act = e.target.closest('[data-sl-act]');
+    if(act){
+      var a = act.dataset.slAct;
+      if(a === 'run') slRun();
+      else if(a === 'save') slSaveToDb();
+      else if(a === 'csv') slCsv();
+      else if(a === 'diag') slDiagnose();
+      else if(a === 'reset-zoom'){ var c = State.chartInstances.slChart; if(c && c.resetZoom) c.resetZoom(); }
+      else if(a === 'goto-single' && SL.last){
+        var k = slSaveKey(SL.last.entry);
+        if(State.codeIndex[k]){ State.ui.singleCode = k; State.ui.singleAccounts = new Set(Array.from(State.codeIndex[k].accountIds)); setView('single'); }
+      }
+      return;
+    }
+    if(!e.target.closest('.sl-searchbox')) slHideSuggest();
+  });
+})();
+/*SL-UI-END*/
+
 /* 合併新舊價格資料：只補上資料庫「還沒有」的日期，既有的數值一律保留不覆蓋。 */
 function mergePriceData(code, newMap){
   var resolved = resolvePriceCode(code);
@@ -2914,7 +3461,7 @@ document.addEventListener('click', function(e){
     var sv = document.getElementById('priceStartDate').value, ev = document.getElementById('priceEndDate').value;
     if(!sv || !ev){ toast('請選擇起訖日期', true); return; }
     var status = document.getElementById('priceFetchStatus');
-    status.textContent = '正在依序嘗試 Yahoo Finance、stooq 等來源抓取「'+code+'」的股價資料…（依你目前的網路環境，可能需要幾秒鐘）';
+    status.textContent = '正在依序嘗試 FinMind、Yahoo Finance、stooq 抓取「'+code+'」的股價資料…';
     fetchPriceOnline(code, new Date(sv+'T00:00:00'), new Date(ev+'T00:00:00')).then(function(r){
       if(r.ok){
         var added = mergePriceData(code, r.data);
@@ -2923,7 +3470,7 @@ document.addEventListener('click', function(e){
         renderPriceTable(code);
         toast('已抓取「'+code+'」共 '+added+' 筆新股價。');
       }else{
-        status.textContent = '這次線上抓取沒有成功——多半是瀏覽器的 CORS 安全限制擋下了對外部金融網站的請求，屬於瀏覽器本身的限制，不同的網路環境（家用／公司／VPN）結果也可能不同。建議改用上面「方法一」直接上傳你的價格報表，或用「方法三」手動貼上，這兩種方式不受此限制、100% 可靠。';
+        status.textContent = '這次線上抓取沒有成功。各來源結果：'+slTriedText(r.tried)+'。可到「🔎 股價查詢」按「診斷連線」檢查，或改用方法一／方法三。';
       }
     });
     return;
@@ -3251,6 +3798,332 @@ function safeRenderChart(wrapId, canvasId, fn){
     });
   });
 }
+
+/*RAW-BEGIN*/
+/* ============================================================
+   A. 單一股票分析：自動補齊該代碼「資料庫還沒有」的最新股價
+============================================================ */
+var AUTO_PRICE_KEY = 'stocktrack_autoprice_on';
+var autoPriceState = { lastTry:{}, running:{}, msg:{} };
+function autoPriceEnabled(){ try{ return localStorage.getItem(AUTO_PRICE_KEY) !== '0'; }catch(e){ return true; } }
+function apIsoToDate(iso){ return new Date(iso+'T00:00:00'); }
+function apAddDays(d, n){ var x = new Date(d.getTime()); x.setDate(x.getDate()+n); return x; }
+/* 目前「應該已有」的最近一個交易日（收盤後算今天，否則算前一個平日；不考慮國定假日） */
+function apExpectedLastDay(now){
+  var d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var afterClose = now.getHours() > 14 || (now.getHours() === 14 && now.getMinutes() >= 0);
+  var dow = d.getDay();
+  if(dow === 6) return apAddDays(d, -1);
+  if(dow === 0) return apAddDays(d, -2);
+  if(afterClose) return d;
+  return apAddDays(d, dow === 1 ? -3 : -1);
+}
+/* 這個代碼在持股資料裡最早出現的日期 */
+function apFirstHoldingIso(code){
+  var first = null;
+  State.accounts.forEach(function(acc){
+    if(acc.included === false) return;
+    acc.sheets.forEach(function(sh){
+      if(sh.rows.has(code) && (first === null || sh.iso < first)) first = sh.iso;
+    });
+  });
+  return first;
+}
+/* 算出需要補抓的區間；回傳 null 代表已經是最新，不用抓 */
+function apPlanRange(code, now){
+  var map = State.priceCache[resolvePriceCode(code)] || {};
+  var dates = Object.keys(map).sort();
+  var firstHold = apFirstHoldingIso(code);
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var expected = slIso(apExpectedLastDay(now));
+  if(!dates.length){
+    return { start: firstHold ? apIsoToDate(firstHold) : apAddDays(today, -180), end:today, why:'資料庫還沒有這檔的股價' };
+  }
+  var cFirst = dates[0], cLast = dates[dates.length-1];
+  if(firstHold && firstHold < slIso(apAddDays(apIsoToDate(cFirst), -7))){
+    return { start: apIsoToDate(firstHold), end:today, why:'補齊較早期的股價' };
+  }
+  if(cLast < expected){
+    return { start: apAddDays(apIsoToDate(cLast), -3), end:today, why:'補齊最新股價' };
+  }
+  return null;
+}
+function apSetStatus(msg, warn, code){
+  if(code){ autoPriceState.msg[code] = { msg:msg, warn:!!warn }; }
+  var el = document.getElementById('singleAutoPriceStatus');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.style.color = warn ? 'var(--alert)' : '';
+}
+async function autoUpdateSinglePrices(code, force){
+  if(!autoPriceEnabled() && !force){ apSetStatus('自動更新股價已關閉（可在上方勾選開啟）'); return; }
+  if(autoPriceState.running[code]) return;
+  var now = new Date();
+  var plan = apPlanRange(code, now);
+  if(!plan){
+    if(autoPriceState.msg[code]){ apSetStatus(autoPriceState.msg[code].msg, autoPriceState.msg[code].warn); return; }
+    apSetStatus('股價已是最新（資料庫最後一筆 '+(function(){ var m = State.priceCache[resolvePriceCode(code)]||{}; var k = Object.keys(m).sort(); return k.length ? k[k.length-1] : '—'; })()+'）'); return; }
+  var last = autoPriceState.lastTry[code];
+  if(!force && last && (now.getTime() - last) < 10*60*1000){ if(autoPriceState.msg[code]) apSetStatus(autoPriceState.msg[code].msg, autoPriceState.msg[code].warn); return; } // 10 分鐘內不重複抓
+  autoPriceState.lastTry[code] = now.getTime();
+  autoPriceState.running[code] = true;
+  apSetStatus('正在更新「'+code+'」股價（'+plan.why+'：'+slIso(plan.start)+' ～ '+slIso(plan.end)+'）…');
+  try{
+    var r = await fetchPriceOnline(code, plan.start, plan.end);
+    if(r.ok){
+      var added = mergePriceData(code, r.data);   // 只新增沒有的日期，不覆蓋舊資料
+      if(added > 0) savePriceCache();
+      apSetStatus(added > 0 ? '已自動補上 '+added+' 筆新股價（來源：'+r.source+'），舊資料未更動。' : '已檢查股價（來源：'+r.source+'），沒有需要新增的日期。', false, code);
+      if(added > 0 && State.ui.view === 'single' && State.ui.singleCode === code){ renderSingleContent(); }
+    }else{
+      apSetStatus('自動更新股價失敗，仍使用資料庫既有股價。'+slTriedText(r.tried), true, code);
+    }
+  }catch(e){
+    apSetStatus('自動更新股價發生錯誤：'+(e && e.message || e), true, code);
+  }finally{
+    autoPriceState.running[code] = false;
+  }
+}
+
+/* ============================================================
+   B. ETF 原始檔直接上傳（免先用 Excel 整理成「民國日期工作表」）
+   支援：投信網站直接下載的 xlsx，只要有「代碼／股數」欄位標題即可。
+   帳戶名稱、日期自動判斷；判斷不出來時才跳出視窗請你確認。
+============================================================ */
+var RAW_MAP_KEY = 'stocktrack_rawfile_map_v1';
+function rawLoadMap(){ try{ return JSON.parse(localStorage.getItem(RAW_MAP_KEY) || '{}'); }catch(e){ return {}; } }
+function rawSaveMap(m){ try{ localStorage.setItem(RAW_MAP_KEY, JSON.stringify(m)); }catch(e){} }
+function rawStem(fileName){
+  return String(fileName).replace(/\.(xlsx|xls|xlsm|xlsb)$/i,'').replace(/\s*\(\d+\)\s*$/,'').replace(/__\d+_$/,'').replace(/[-_ ]*\d{4}[-_\/.]?\d{2}[-_\/.]?\d{2}$/,'').trim();
+}
+function rawIsValidIso(iso){
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); if(!m) return false;
+  var y = +m[1], mo = +m[2], d = +m[3];
+  if(y < 2000 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) return false;
+  var dt = new Date(y, mo-1, d);
+  return dt.getMonth() === mo-1;
+}
+/* 從一段文字找日期：支援 2026/11/06、2026-11-06、2026_11_06、20261106、115/11/06（民國）、2026年11月6日 */
+function rawFindDate(text){
+  var s = String(text == null ? '' : text);
+  var m = /(20\d{2})\s*[\/\-_.年]\s*(\d{1,2})\s*[\/\-_.月]\s*(\d{1,2})/.exec(s);
+  if(m){ var iso = m[1]+'-'+pad2(+m[2])+'-'+pad2(+m[3]); if(rawIsValidIso(iso)) return iso; }
+  m = /(?:^|[^0-9])(20\d{2})(\d{2})(\d{2})(?![0-9])/.exec(s);
+  if(m){ var iso2 = m[1]+'-'+m[2]+'-'+m[3]; if(rawIsValidIso(iso2)) return iso2; }
+  m = /(?:^|[^0-9])(1[01]\d)\s*[\/\-_.年]\s*(\d{1,2})\s*[\/\-_.月]\s*(\d{1,2})/.exec(s);
+  if(m){ var iso3 = (+m[1]+1911)+'-'+pad2(+m[2])+'-'+pad2(+m[3]); if(rawIsValidIso(iso3)) return iso3; }
+  return '';
+}
+function rawFindEtfCode(text){
+  var m = /(?:^|[^0-9A-Za-z])(00\d{2,4}[A-Za-z]?)(?![0-9])/.exec(String(text || ''));
+  return m ? m[1].toUpperCase() : '';
+}
+/* 欄位標題列：同一列必須同時有「代碼」與「股數」欄，且儲存格要短（避免誤抓標題文字） */
+function rawFindHeader(rows2d){
+  var maxScan = Math.min(rows2d.length, 80);
+  for(var r = 0; r < maxScan; r++){
+    var row = rows2d[r] || [];
+    var codeCol=-1, nameCol=-1, sharesCol=-1, weightCol=-1;
+    for(var c = 0; c < row.length; c++){
+      var cell = String(row[c] == null ? '' : row[c]).trim();
+      if(!cell || cell.length > 16) continue;
+      if(codeCol === -1 && HEADER_KEYWORDS.code.test(cell)) codeCol = c;
+      else if(nameCol === -1 && HEADER_KEYWORDS.name.test(cell)) nameCol = c;
+      else if(sharesCol === -1 && HEADER_KEYWORDS.shares.test(cell)) sharesCol = c;
+      else if(weightCol === -1 && HEADER_KEYWORDS.weight.test(cell)) weightCol = c;
+    }
+    if(codeCol !== -1 && sharesCol !== -1) return { headerRow:r, codeCol:codeCol, nameCol:nameCol, sharesCol:sharesCol, weightCol:weightCol };
+  }
+  return null;
+}
+var RAW_CODE_OK = /^[0-9A-Za-z][0-9A-Za-z .\-\/]*$/;
+function rawExtractRows(rows2d, mp){
+  var map = new Map();
+  for(var r = mp.headerRow+1; r < rows2d.length; r++){
+    var row = rows2d[r] || [];
+    var isBlank = row.every(function(c){ return c === '' || c == null; });
+    /* 空白列＝股票清單結束（後面常接期貨、選擇權、現金等其他表格，不能當成持股） */
+    if(isBlank){ if(map.size > 0) break; else continue; }
+    var code = String(row[mp.codeCol] == null ? '' : row[mp.codeCol]).trim();
+    if(map.size > 0 && HEADER_KEYWORDS.code.test(code)) break;   // 遇到下一個表格的標題列
+    if(!code || SKIP_ROW_CODE.test(code) || HEADER_KEYWORDS.code.test(code) || !RAW_CODE_OK.test(code)) continue;
+    var shares = toNum(row[mp.sharesCol]);
+    if(!(shares > 0)) continue;
+    var name = mp.nameCol >= 0 ? String(row[mp.nameCol] == null ? '' : row[mp.nameCol]).trim() : '';
+    var weight = (mp.weightCol >= 0 && row[mp.weightCol] != null && row[mp.weightCol] !== '') ? row[mp.weightCol] : null;
+    if(map.has(code)){ map.get(code).shares += shares; }   // 同代碼重複列：股數相加
+    else map.set(code, { name:name, shares:shares, dValue:weight });
+  }
+  return map;
+}
+function rawGuessDefaultDate(file){
+  var d = (file && file.lastModified) ? new Date(file.lastModified) : new Date();
+  var dow = d.getDay();
+  if(dow === 6) d.setDate(d.getDate()-1);
+  else if(dow === 0) d.setDate(d.getDate()-2);
+  return slIso(d);
+}
+/* 解析一個原始檔（已用 XLSX 讀成 workbook）；回傳辨識結果，不直接寫入資料 */
+function rawAnalyzeWorkbook(wb, fileName, lastModified){
+  var best = null, headText = '';
+  wb.SheetNames.forEach(function(sn){
+    var rows2d = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header:1, defval:'', raw:true });
+    var mp = rawFindHeader(rows2d);
+    if(!mp) return;
+    var rows = rawExtractRows(rows2d, mp);
+    if(rows.size === 0) return;
+    if(!best || rows.size > best.rows.size){ best = { sheet:sn, rows:rows, rows2d:rows2d, mp:mp }; }
+  });
+  if(!best) return { ok:false, fileName:fileName, error:'找不到同時含「代碼」與「股數」欄位標題的工作表' };
+  // 日期／代碼：先看標題列以上的內容，再看其他工作表前幾列，最後看檔名
+  var topCells = [];
+  wb.SheetNames.forEach(function(sn){
+    var rr = (sn === best.sheet) ? best.rows2d : XLSX.utils.sheet_to_json(wb.Sheets[sn], { header:1, defval:'', raw:true });
+    var limit = (sn === best.sheet) ? best.mp.headerRow : Math.min(rr.length, 12);
+    for(var r = 0; r < limit; r++) (rr[r] || []).forEach(function(c){ if(c !== '' && c != null) topCells.push(String(c)); });
+  });
+  var iso = '', dateSrc = '';
+  for(var i = 0; i < topCells.length && !iso; i++){ var f = rawFindDate(topCells[i]); if(f){ iso = f; dateSrc = '檔案內容'; } }
+  if(!iso){ var f2 = rawFindDate(fileName); if(f2){ iso = f2; dateSrc = '檔名'; } }
+  var code = rawFindEtfCode(fileName); var codeSrc = code ? '檔名' : '';
+  for(var j = 0; j < topCells.length && !code; j++){ var c2 = rawFindEtfCode(topCells[j]); if(c2){ code = c2; codeSrc = '檔案內容'; } }
+  return { ok:true, fileName:fileName, sheet:best.sheet, rows:best.rows, iso:iso, dateSrc:dateSrc, code:code, codeSrc:codeSrc, lastModified:lastModified };
+}
+function rawParseFile(file){
+  return new Promise(function(resolve){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        var wb = XLSX.read(new Uint8Array(e.target.result), { type:'array', cellDates:false });
+        resolve(rawAnalyzeWorkbook(wb, file.name, file.lastModified));
+      }catch(err){ resolve({ ok:false, fileName:file.name, error:'讀取失敗：'+err.message }); }
+    };
+    reader.onerror = function(){ resolve({ ok:false, fileName:file.name, error:'讀取檔案失敗' }); };
+    reader.readAsArrayBuffer(file);
+  });
+}
+/* 決定這個檔案要併進哪個帳戶：記憶的對應 → 帳戶名稱含該 ETF 代碼（唯一）→ 無法判斷 */
+function rawResolveAccount(item, map){
+  var names = State.accounts.map(function(a){ return a.name; });
+  var stem = rawStem(item.fileName);
+  if(item.code && map['code:'+item.code] && names.indexOf(map['code:'+item.code]) >= 0) return { name:map['code:'+item.code], sure:true };
+  if(map['stem:'+stem] && names.indexOf(map['stem:'+stem]) >= 0) return { name:map['stem:'+stem], sure:true };
+  if(item.code){
+    var hits = names.filter(function(n){ return n.toUpperCase().indexOf(item.code) >= 0; });
+    if(hits.length === 1) return { name:hits[0], sure:true };
+    return { name:(hits[0] || item.code), sure:false };
+  }
+  return { name:'', sure:false };
+}
+function rawCommitItem(item, accName, iso, map){
+  var roc = String(parseInt(iso.slice(0,4),10)-1911)+iso.slice(5,7)+iso.slice(8,10);
+  var acc = { id:uid(), name:accName, color:PALETTE[0], shape:SHAPES[0], included:true,
+    sheets:[{ roc:roc, iso:iso, date:new Date(iso+'T00:00:00'), rows:item.rows }] };
+  var r = mergeAccountIntoStore(acc);
+  if(item.code) map['code:'+item.code] = accName;
+  map['stem:'+rawStem(item.fileName)] = accName;
+  return r;
+}
+function rawFinishImport(lines, map){
+  rawSaveMap(map);
+  pruneEmptyAccounts();
+  reassignAccountVisuals();
+  renderAccountsList();
+  if(lines.length) toast(lines.join('；'));
+}
+var rawPending = [];
+async function handleRawEtfFiles(fileList){
+  var files = Array.prototype.slice.call(fileList);
+  if(!files.length) return;
+  if(typeof XLSX === 'undefined'){ toast('Excel 解析套件未載入，無法匯入。', true); return; }
+  var results = await Promise.all(files.map(rawParseFile));
+  var map = rawLoadMap(), lines = [], needAsk = [];
+  results.forEach(function(it){
+    if(!it.ok){ toast('「'+it.fileName+'」無法辨識：'+it.error, true); return; }
+    var acc = rawResolveAccount(it, map);
+    it.accName = acc.name;
+    if(it.iso && acc.sure){
+      var r = rawCommitItem(it, acc.name, it.iso, map);
+      lines.push(r.skipped ? (it.fileName+'：略過') : (acc.name+' '+it.iso+'：'+(r.added > 0 ? '新增（'+it.rows.size+' 檔持股）' : '該日期已存在，未更動')));
+    }else{
+      it.defaultIso = it.iso || rawGuessDefaultDate({ lastModified:it.lastModified });
+      needAsk.push(it);
+    }
+  });
+  if(needAsk.length){
+    rawPending = needAsk;
+    rawFinishImport(lines, map);
+    rawShowConfirmModal(needAsk);
+  }else{
+    rawFinishImport(lines, map);
+  }
+}
+function rawShowConfirmModal(items){
+  var names = State.accounts.map(function(a){ return a.name; });
+  var dl = '<datalist id="rawAccList">'+names.map(function(n){ return '<option value="'+esc(n)+'"></option>'; }).join('')+'</datalist>';
+  var rowsHtml = items.map(function(it, idx){
+    var why = [];
+    if(!it.iso) why.push('檔案內找不到日期，請確認');
+    if(!it.accName || !names.length || names.indexOf(it.accName) < 0) why.push(it.code ? '請確認要併入哪個帳戶（找不到名稱含 '+it.code+' 的既有帳戶）' : '檔名與內容都看不出是哪一檔 ETF，請輸入帳戶名稱');
+    return '<div class="card" style="padding:12px 14px; margin-top:10px;">'+
+      '<div style="font-weight:600; word-break:break-all;">'+esc(it.fileName)+'</div>'+
+      '<div class="hint" style="margin:2px 0 8px;">辨識到 '+it.rows.size+' 檔持股（工作表「'+esc(it.sheet)+'」）'+(it.code ? '，ETF 代號 '+esc(it.code) : '')+'。'+esc(why.join('；'))+'</div>'+
+      '<div class="filter-row" style="margin-bottom:0;">'+
+        '<div class="field" style="flex:1; min-width:200px;"><label>併入帳戶（可選既有，或輸入新名稱）</label><input type="text" list="rawAccList" data-raw-acc="'+idx+'" value="'+esc(it.accName || '')+'"></div>'+
+        '<div class="field" style="width:170px;"><label>資料日期</label><input type="date" data-raw-date="'+idx+'" value="'+esc(it.defaultIso)+'"></div>'+
+      '</div></div>';
+  }).join('');
+  showModal({
+    title:'請確認 ETF 檔案的帳戶與日期',
+    bodyHtml: dl+'<p class="hint">以下檔案無法 100% 自動判斷。確認後會記住對應，下次同一檔 ETF 就不用再問。<br>若多個檔案是同一天的資料，可用右邊一次套用：<input type="date" id="rawApplyAll"> <button class="btn btn-sm" data-raw-act="apply-date">套用到全部</button></p>'+rowsHtml,
+    footHtml:'<button class="btn btn-ghost" data-action="close-modal">取消（不匯入這些檔案）</button><button class="btn btn-primary" data-raw-act="confirm">確認並匯入</button>'
+  });
+}
+document.addEventListener('click', function(e){
+  var b = e.target.closest('[data-raw-act]');
+  if(!b) return;
+  var act = b.dataset.rawAct;
+  if(act === 'apply-date'){
+    var v = document.getElementById('rawApplyAll').value;
+    if(!v){ toast('請先選擇日期', true); return; }
+    document.querySelectorAll('[data-raw-date]').forEach(function(inp){ inp.value = v; });
+    return;
+  }
+  if(act === 'confirm'){
+    var map = rawLoadMap(), lines = [], bad = 0;
+    rawPending.forEach(function(it, idx){
+      var acc = document.querySelector('[data-raw-acc="'+idx+'"]').value.trim();
+      var iso = document.querySelector('[data-raw-date="'+idx+'"]').value;
+      if(!acc || !rawIsValidIso(iso)){ bad++; return; }
+      var r = rawCommitItem(it, acc, iso, map);
+      lines.push(acc+' '+iso+'：'+(r.added > 0 ? '新增（'+it.rows.size+' 檔持股）' : '該日期已存在，未更動'));
+    });
+    if(bad){ toast('有 '+bad+' 個檔案的帳戶或日期沒填完整，已略過。', true); }
+    rawFinishImport(lines, map);
+    rawPending = [];
+    closeModal();
+  }
+});
+/*RAW-END*/
+
+/* 原始檔上傳互動 */
+(function(){
+  var dz = document.getElementById('rawDropzone'), inp = document.getElementById('rawFileInput');
+  dz.addEventListener('click', function(){ inp.click(); });
+  inp.addEventListener('change', function(){ handleRawEtfFiles(this.files); this.value=''; });
+  ['dragenter','dragover'].forEach(function(evt){ dz.addEventListener(evt, function(e){ e.preventDefault(); dz.classList.add('drag'); }); });
+  ['dragleave','drop'].forEach(function(evt){ dz.addEventListener(evt, function(e){ e.preventDefault(); dz.classList.remove('drag'); }); });
+  dz.addEventListener('drop', function(e){ handleRawEtfFiles(e.dataTransfer.files); });
+  var chk = document.getElementById('singleAutoPrice');
+  chk.checked = autoPriceEnabled();
+  chk.closest('.chip').classList.toggle('checked', chk.checked);
+  chk.addEventListener('change', function(){
+    try{ localStorage.setItem(AUTO_PRICE_KEY, this.checked ? '1' : '0'); }catch(e){}
+    this.closest('.chip').classList.toggle('checked', this.checked);
+    if(this.checked && State.ui.singleCode) autoUpdateSinglePrices(State.ui.singleCode, true);
+    else if(!this.checked) apSetStatus('自動更新股價已關閉');
+  });
+})();
 
 /* 初始化 */
 loadPriceCache();
