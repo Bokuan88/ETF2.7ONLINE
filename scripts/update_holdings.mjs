@@ -137,21 +137,42 @@ const BASE_HEADERS = {
   'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8',
   'Sec-Fetch-Dest': 'document', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Site': 'same-origin',
 };
+/* 手動追蹤跳轉並自動帶 cookie（有些網站要先發 cookie 才放行，不帶就會一直跳轉）；失敗時回報完整跳轉路徑 */
+async function fetchFollow(url, referer) {
+  const jar = new Map();
+  const chain = [];
+  let cur = url;
+  for (let hop = 0; hop < 10; hop++) {
+    const headers = { ...BASE_HEADERS, Referer: referer || new URL(cur).origin + '/' };
+    if (jar.size) headers.Cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    const res = await fetch(cur, { headers, redirect: 'manual', signal: AbortSignal.timeout(60000) });
+    const setCookies = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
+    setCookies.forEach(c => { const kv = c.split(';')[0]; const i = kv.indexOf('='); if (i > 0) jar.set(kv.slice(0, i).trim(), kv.slice(i + 1).trim()); });
+    if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+      const next = new URL(res.headers.get('location'), cur).toString();
+      chain.push(`${res.status} ${cur.replace(/^https?:\/\//, '').slice(0, 70)} → ${next.replace(/^https?:\/\//, '').slice(0, 70)}${setCookies.length ? '（發了 ' + setCookies.length + ' 個 cookie）' : ''}`);
+      cur = next;
+      continue;
+    }
+    return { res, chain };
+  }
+  const err = new Error('跳轉超過 10 次｜跳轉路徑：' + chain.slice(0, 4).join(' ‖ '));
+  throw err;
+}
 async function download(url, referer) {
   let lastErr;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const res = await fetch(url, { headers: { ...BASE_HEADERS, Referer: referer || new URL(url).origin + '/' }, redirect: 'follow', signal: AbortSignal.timeout(60000) });
+      const { res, chain } = await fetchFollow(url, referer);
       const buf = Buffer.from(await res.arrayBuffer());
       const ct = res.headers.get('content-type') || '';
       const isXlsx = buf.length > 100 && buf[0] === 0x50 && buf[1] === 0x4B;
       if (res.ok && isXlsx) return buf;
       const body = buf.toString('utf8', 0, 200).replace(/\s+/g, ' ').trim();
       const blocked = /cloudflare|attention required|access denied|captcha|just a moment|forbidden/i.test(body + ' ' + (res.headers.get('server') || ''));
-      throw new Error(`HTTP ${res.status}｜content-type: ${ct || '無'}｜大小 ${buf.length} bytes｜${blocked ? '疑似被網站防護機制擋下｜' : ''}回應開頭：${body || '(空)'}`);
+      throw new Error(`HTTP ${res.status}｜content-type: ${ct || '無'}｜大小 ${buf.length} bytes｜${blocked ? '疑似被網站防護機制擋下｜' : ''}${chain.length ? '曾跳轉：' + chain.join(' ‖ ') + '｜' : ''}回應開頭：${body || '(空)'}`);
     } catch (e) {
-      // Node 的 fetch 連線失敗時只會說 "fetch failed"，真正原因藏在 e.cause 裡，這裡把它挖出來
-      const c = e && e.cause;
+      const c = e && e.cause;   // Node 連線失敗只會說 "fetch failed"，真正原因在 e.cause
       if (c && !/原因：/.test(e.message)) e.message += `｜原因：${c.code || c.name || ''} ${c.message || ''}`.trimEnd();
       lastErr = e;
       if (attempt < 2) await new Promise(r => setTimeout(r, 3000));
