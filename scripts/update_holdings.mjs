@@ -150,6 +150,9 @@ async function download(url, referer) {
       const blocked = /cloudflare|attention required|access denied|captcha|just a moment|forbidden/i.test(body + ' ' + (res.headers.get('server') || ''));
       throw new Error(`HTTP ${res.status}｜content-type: ${ct || '無'}｜大小 ${buf.length} bytes｜${blocked ? '疑似被網站防護機制擋下｜' : ''}回應開頭：${body || '(空)'}`);
     } catch (e) {
+      // Node 的 fetch 連線失敗時只會說 "fetch failed"，真正原因藏在 e.cause 裡，這裡把它挖出來
+      const c = e && e.cause;
+      if (c && !/原因：/.test(e.message)) e.message += `｜原因：${c.code || c.name || ''} ${c.message || ''}`.trimEnd();
       lastErr = e;
       if (attempt < 2) await new Promise(r => setTimeout(r, 3000));
     }
@@ -161,7 +164,9 @@ const twToday = () => { const p = new Intl.DateTimeFormat('en-CA', { timeZone: '
 export async function run() {
   let accounts = loadAccounts();
   let changed = 0, failed = 0;
+  const ONLY = (process.env.ONLY_SOURCE || '').split(',').map(x => x.trim()).filter(Boolean);   // 例：ONLY_SOURCE=ezmoney 只更新 ezmoney 那幾檔
   for (const etf of ETFS) {
+    if (ONLY.length && !ONLY.includes(etf.source)) continue;
     try {
       const acc = resolveAccount(etf, accounts);
       if (!acc) continue;
