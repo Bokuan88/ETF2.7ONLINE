@@ -131,13 +131,30 @@ function addSheet(acc, iso, rows) {
 }
 
 /* ===== 下載 ===== */
-const HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36', 'Accept': '*/*', 'Referer': 'https://www.ezmoney.com.tw/' };
-async function download(url) {
-  const res = await fetch(url, { headers: HEADERS, redirect: 'follow', signal: AbortSignal.timeout(60000) });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length < 100 || buf[0] !== 0x50 || buf[1] !== 0x4B) throw new Error('下載內容不是 xlsx 檔（可能被網站擋下或回傳網頁）');
-  return buf;
+const BASE_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream,*/*;q=0.8',
+  'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8',
+  'Sec-Fetch-Dest': 'document', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Site': 'same-origin',
+};
+async function download(url, referer) {
+  let lastErr;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(url, { headers: { ...BASE_HEADERS, Referer: referer || new URL(url).origin + '/' }, redirect: 'follow', signal: AbortSignal.timeout(60000) });
+      const buf = Buffer.from(await res.arrayBuffer());
+      const ct = res.headers.get('content-type') || '';
+      const isXlsx = buf.length > 100 && buf[0] === 0x50 && buf[1] === 0x4B;
+      if (res.ok && isXlsx) return buf;
+      const body = buf.toString('utf8', 0, 200).replace(/\s+/g, ' ').trim();
+      const blocked = /cloudflare|attention required|access denied|captcha|just a moment|forbidden/i.test(body + ' ' + (res.headers.get('server') || ''));
+      throw new Error(`HTTP ${res.status}｜content-type: ${ct || '無'}｜大小 ${buf.length} bytes｜${blocked ? '疑似被網站防護機制擋下｜' : ''}回應開頭：${body || '(空)'}`);
+    } catch (e) {
+      lastErr = e;
+      if (attempt < 2) await new Promise(r => setTimeout(r, 3000));
+    }
+  }
+  throw lastErr;
 }
 const twToday = () => { const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date()); return p; };
 
@@ -150,7 +167,7 @@ export async function run() {
       if (!acc) continue;
       let candidates = [];   // [{iso, buf}]
       if (etf.source === 'ezmoney') {
-        const parsed = parseEtfWorkbook(await download(EZ + etf.fundCode));
+        const parsed = parseEtfWorkbook(await download(EZ + etf.fundCode, 'https://www.ezmoney.com.tw/ETF/Fund/Info?fundCode=' + etf.fundCode));
         let iso = parsed.iso;
         if (!iso) { iso = twToday(); console.warn(`⚠️ ${etf.code}：檔案內找不到日期，改用今天（台北）${iso}`); }
         candidates.push({ iso, rows: parsed.rows });
