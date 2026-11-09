@@ -18,9 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      
       - name: 安裝 xlsx 套件
         run: npm install --no-save xlsx@0.18.5
       - name: 下載並更新 holdings
