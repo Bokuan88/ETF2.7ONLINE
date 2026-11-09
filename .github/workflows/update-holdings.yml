@@ -1,0 +1,45 @@
+name: 每日更新 ETF 持股
+
+on:
+  schedule:
+    - cron: '30 10 * * 1-5'   # 台北時間 週一至週五 18:30（UTC 10:30）
+    - cron: '30 0 * * 2-6'    # 台北時間 週二至週六 08:30，補抓前一晚才公布的資料
+  workflow_dispatch:           # 也可在 GitHub 的 Actions 頁面手動按「Run workflow」
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-holdings
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 安裝 xlsx 套件
+        run: npm install --no-save xlsx@0.18.5
+      - name: 下載並更新 holdings
+        id: upd
+        continue-on-error: true   # 某一檔失敗時，其他檔已抓到的資料仍要 commit
+        run: node scripts/update_holdings.mjs
+      - name: 有變動才 commit
+        run: |
+          if [ -n "$(git status --porcelain holdings)" ]; then
+            git config user.name "etf-bot"
+            git config user.email "etf-bot@users.noreply.github.com"
+            git add holdings
+            git commit -m "auto: 更新 ETF 持股 $(date -u +%Y-%m-%d)"
+            git push
+          else
+            echo "沒有新資料"
+          fi
+      - name: 若有任何一檔下載失敗，顯示紅燈提醒
+        if: steps.upd.outcome == 'failure'
+        run: |
+          echo "有 ETF 下載失敗，請展開上一個步驟的 log 查看原因"
+          exit 1
