@@ -867,7 +867,9 @@ function mergeAccountIntoStore(newAcc){
   if(!newAcc || !(newAcc.name && String(newAcc.name).trim()) || !(newAcc.sheets && newAcc.sheets.length)){
     return { name: (newAcc && newAcc.name) || '（空）', isNew:false, added:0, total:0, accId: null, skipped:true };
   }
+  newAcc.included = true;
   var existing = State.accounts.find(function(a){ return a.name === newAcc.name; });
+  if(existing) existing.included = true;
   if(!existing){
     State.accounts.push(newAcc);
     markAccountDirty(newAcc.id);
@@ -1176,7 +1178,7 @@ async function connectDbDirectory(){
    不需手動選擇本機資料夾。本機 File System Access 仍保留為選用功能。
 ============================================================ */
 var REMOTE_DB = {
-  enabled: true,
+  enabled: /(^|\.)github\.io$/i.test(location.hostname || ''),
   // 自動偵測 github.io；失敗時用此預設
   githubOwner: 'Bokuan88',
   githubRepo: 'ETF2.7ONLINE',
@@ -1235,27 +1237,27 @@ async function fetchJsonText(fileInfo){
 }
 
 async function loadRemoteDatabase(){
-  if(!REMOTE_DB.enabled) return null;
   setDbStatus('正在從線上資料庫載入 holdings／prices …');
-  var accSummaries = [];
-  var priceCodes = 0, pricePoints = 0;
+  var loaded = [], failed = [], priceCodes = 0, pricePoints = 0;
   var holdingsFiles = await listRemoteJsonFiles('holdings');
   for(var i = 0; i < holdingsFiles.length; i++){
     var f = holdingsFiles[i];
     try{
       var text = await fetchJsonText(f);
-      if(!text.trim()) continue;
+      if(!text.trim()){ failed.push(f.name + '（空檔）'); continue; }
       var acc = deserializeOneAccount(JSON.parse(text));
       acc._fileKey = f.name;
       var r = mergeAccountIntoStore(acc);
-      accSummaries.push(r.isNew
-        ? (r.name + '：新帳戶，' + r.total + ' 個日期')
-        : (r.name + '：新增 ' + r.added + ' 個日期，目前共 ' + r.total + ' 個'));
+      if(r.skipped){ failed.push(f.name + '（沒有名稱或日期資料）'); continue; }
+      loaded.push(r.name);
     }catch(e){
       console.warn('讀取線上帳戶檔「' + f.name + '」失敗：', e);
+      failed.push(f.name + '：' + (e && e.message ? e.message : e));
     }
   }
-  var priceFiles = await listRemoteJsonFiles('prices');
+  var priceFiles = [];
+  try{ priceFiles = await listRemoteJsonFiles('prices'); }
+  catch(e){ failed.push('prices 資料夾：' + (e && e.message ? e.message : e)); }
   for(var j = 0; j < priceFiles.length; j++){
     var pf = priceFiles[j];
     try{
@@ -1270,43 +1272,37 @@ async function loadRemoteDatabase(){
     }
   }
   REMOTE_DB.loaded = true;
-  return {
-    accSummaries: accSummaries,
-    priceCodes: priceCodes,
-    pricePoints: pricePoints,
-    holdingsFileCount: holdingsFiles.length,
-    pricesFileCount: priceFiles.length
-  };
+  return { loaded:loaded, failed:failed, priceCodes:priceCodes, pricePoints:pricePoints,
+           holdingsFileCount:holdingsFiles.length, pricesFileCount:priceFiles.length };
 }
 
 async function initDataSources(){
-  // 1) 優先自動載入線上 holdings／prices（GitHub）
   if(REMOTE_DB.enabled){
+    /* 線上版：只讀 GitHub 的 holdings／prices，每個帳戶一律納入，不讀這台電腦的資料夾，各裝置看到的一致 */
+    var msg = '';
     try{
       var r = await loadRemoteDatabase();
-      if(r){
-        pruneEmptyAccounts();
-        reassignAccountVisuals();
-        renderAccountsList();
-        rebuildIndex();
-        runAlerts();
-        savePriceCache();
-        if(State.ui.priceTableCode) renderPriceTable(State.ui.priceTableCode);
-        var msg = '✅ 已自動載入線上資料庫：' + r.holdingsFileCount + ' 個帳戶檔、' +
-          r.pricesFileCount + ' 檔股價（讀入 ' + r.accSummaries.length + ' 個帳戶、新增股價 ' + r.pricePoints + ' 筆）';
-        setDbStatus(msg);
-        if(r.accSummaries.length || r.pricePoints){
-          toast('線上資料庫載入完成。');
-        }
-      }
+      msg = '✅ 已載入 ' + r.loaded.length + ' 個帳戶：' + r.loaded.join('、') + '（股價 ' + r.pricesFileCount + ' 檔）';
+      if(r.failed.length) msg += '\n⚠️ 有 ' + r.failed.length + ' 個檔案讀取失敗：' + r.failed.join('；');
+      if(r.loaded.length) toast('線上資料庫載入完成（' + r.loaded.length + ' 個帳戶）。', r.failed.length > 0);
     }catch(err){
       console.warn('線上資料庫載入失敗：', err);
-      setDbStatus('⚠️ 線上資料庫自動載入失敗：' + (err && err.message ? err.message : err) +
-        '。可改用下方「選擇／建立資料庫資料夾」或「載入快照」。');
+      msg = '⚠️ 線上資料庫載入失敗：' + (err && err.message ? err.message : err) + '。請重新整理；若持續失敗可能是 GitHub 暫時限流，稍後再試。';
     }
+    pruneEmptyAccounts();
+    reassignAccountVisuals();
+    renderAccountsList();
+    rebuildIndex();
+    runAlerts();
+    savePriceCache();
+    if(State.ui.priceTableCode) renderPriceTable(State.ui.priceTableCode);
+    setDbStatus(msg);
+    var st = document.getElementById('dbStatus'); if(st) st.style.whiteSpace = 'pre-wrap';
+  }else{
+    /* 本機版：完全不連 GitHub，只讀本機的 holdings／prices 資料夾 */
+    setDbStatus('本機版：請按「選擇／建立資料庫資料夾」，選擇含有 holdings 與 prices 的資料夾（Chrome／Edge）。');
+    await tryReconnectDbDirectory();
   }
-  // 2) 仍嘗試靜默重連本機資料夾（選用，不覆蓋已載入的線上資料規則：只新增）
-  await tryReconnectDbDirectory();
 }
 
 async function tryReconnectDbDirectory(){
@@ -3399,12 +3395,12 @@ document.addEventListener('click', function(e){
     return;
   }
   if(action==='select-all-accounts'){
-    State.accounts.forEach(function(a){ a.included = true; markAccountDirty(a.id); });
+    State.accounts.forEach(function(a){ a.included = true; });
     renderAccountsList();
     return;
   }
   if(action==='select-none-accounts'){
-    State.accounts.forEach(function(a){ a.included = false; markAccountDirty(a.id); });
+    State.accounts.forEach(function(a){ a.included = false; });
     renderAccountsList();
     return;
   }
@@ -3554,7 +3550,7 @@ document.addEventListener('change', function(e){
   if(e.target.id === 'compareLineStyle'){ State.settings.lineStyle = e.target.value; renderCompareChart(); }
   if(e.target.dataset && e.target.dataset.action === 'toggle-account-included'){
     var accToggle = State.accounts.find(function(a){ return a.id===e.target.dataset.id; });
-    if(accToggle){ accToggle.included = e.target.checked; renderAccountsList(); markAccountDirty(accToggle.id); }
+    if(accToggle){ accToggle.included = e.target.checked; renderAccountsList(); }
   }
   if(e.target.dataset && e.target.dataset.action === 'toggle-single-account'){
     var id = e.target.dataset.id;
@@ -3673,6 +3669,7 @@ document.getElementById('snapshotInput').addEventListener('change', function(){
     try{
       var payload = JSON.parse(e.target.result);
       State.accounts = deserializeAccounts(payload.accounts||[]);
+      State.accounts.forEach(function(a){ a.included = true; });
       reassignAccountVisuals();
       State.priceCache = payload.priceCache || {};
       if(payload.settings) State.settings = payload.settings;
