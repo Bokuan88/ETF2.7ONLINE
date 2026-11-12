@@ -854,7 +854,7 @@ function serializeAccounts(){
 }
 function deserializeAccounts(arr){
   return (arr||[]).map(function(acc){
-    return { id:acc.id||uid(), name:acc.name, color:acc.color, shape:acc.shape, included: acc.included!==false, sheets: (acc.sheets||[]).map(function(s){
+    return { id:uid(), name:acc.name, color:acc.color, shape:acc.shape, included: acc.included!==false, sheets: (acc.sheets||[]).map(function(s){
       return { roc:s.roc, iso:s.iso, date:new Date(s.iso+'T00:00:00'), rows:new Map(s.rows) };
     })};
   });
@@ -1065,7 +1065,7 @@ function serializeOneAccount(acc){
   })};
 }
 function deserializeOneAccount(obj){
-  return { id: obj.id||uid(), name:obj.name, color:obj.color, shape:obj.shape, included: obj.included!==false, sheets: (obj.sheets||[]).map(function(s){
+  return { id: uid(), name:obj.name, color:obj.color, shape:obj.shape, included: obj.included!==false, sheets: (obj.sheets||[]).map(function(s){
     return { roc:s.roc, iso:s.iso, date:new Date(s.iso+'T00:00:00'), rows:new Map(s.rows) };
   })};
 }
