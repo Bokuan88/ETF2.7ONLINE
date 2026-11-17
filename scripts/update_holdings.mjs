@@ -8,6 +8,7 @@ const ROOT = process.env.REPO_ROOT || process.cwd();
 const HOLD_DIR = path.join(ROOT, 'holdings');
 const EZ = process.env.EZMONEY_BASE || 'https://www.ezmoney.com.tw/ETF/Fund/AssetExcelNPOI?fundCode=';
 const FH = process.env.FHTRUST_BASE || 'https://www.fhtrust.com.tw/api/assetsExcel/ETF23/';
+const NM = process.env.NOMURA_API || 'https://www.nomurafunds.com.tw/API/ETFAPI/api/Fund/GetFundAssets';
 
 /* ===== 要自動更新的 ETF（帳戶名稱留空 = 自動找「名稱含該代號」的既有帳戶，找不到就用代號新建） ===== */
 const ETFS = [
@@ -15,6 +16,8 @@ const ETFS = [
   { code:'00981A', source:'ezmoney', fundCode:'49YTW', accountName:'' },
   { code:'00988A', source:'ezmoney', fundCode:'61YTW', accountName:'' },
   { code:'00991A', source:'fhtrust', accountName:'' },   // 復華：依日期逐日下載（會回補最近 7 天沒抓到的日期）
+  { code:'00985A', source:'nomura', accountName:'' },    // 野村：直接呼叫網站的 JSON 介面（不是 Excel）
+  { code:'00980A', source:'nomura', accountName:'' },
 ];
 
 const HEADER = {
@@ -182,6 +185,59 @@ async function download(url, referer) {
 }
 const twToday = () => { const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date()); return p; };
 
+/* ===== 野村投信：網站持股頁背後的 JSON 介面（回傳最新一個資料日的完整股票清單） ===== */
+export function parseNomura(json) {
+  const d = json?.Entries?.Data;
+  const navDate = d?.FundAsset?.NavDate;                      // 例如 2026/11/16
+  const iso = findDate(navDate);
+  if (!iso) throw new Error('野村回應裡找不到資料日期（NavDate）：' + JSON.stringify(navDate));
+  const table = (d?.Table || []).find(t => t.TableTitle === '股票');
+  if (!table) throw new Error('野村回應裡找不到標題為「股票」的表格');
+  const cols = (table.Columns || []).map(c => String(c.Name || ''));
+  const ic = cols.findIndex(c => /代號|代碼/.test(c)), iname = cols.findIndex(c => /名稱/.test(c));
+  const ish = cols.findIndex(c => /股數/.test(c)), iw = cols.findIndex(c => /權重|比重/.test(c));
+  if (ic < 0 || ish < 0) throw new Error('野村表格欄位名稱不符預期：' + cols.join('、'));
+  const map = new Map();
+  for (const r of table.Rows || []) {
+    const code = String(r[ic] ?? '').trim();
+    const shares = toNum(r[ish]);
+    if (!code || !(shares > 0) || SKIP_CODE.test(code) || !CODE_OK.test(code)) continue;
+    const w = iw >= 0 && r[iw] !== '' && r[iw] != null ? toNum(r[iw]) : null;
+    if (map.has(code)) map.get(code)[1].shares += shares;
+    else map.set(code, [code, { name: iname >= 0 ? String(r[iname] ?? '').trim() : '', shares, dValue: w }]);
+  }
+  return { iso, rows: [...map.values()] };
+}
+async function fetchNomura(code) {
+  let lastErr;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(NM, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, text/plain, */*',
+          'Origin': 'https://www.nomurafunds.com.tw',
+          'Referer': `https://www.nomurafunds.com.tw/ETFWEB/product-description?fundNo=${code}&tab=Shareholding`,
+          'User-Agent': BASE_HEADERS['User-Agent'],
+          'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8',
+        },
+        body: JSON.stringify({ FundID: code, SearchDate: null }),
+        signal: AbortSignal.timeout(60000),
+      });
+      const text = await res.text();
+      if (!res.ok) throw new Error(`HTTP ${res.status}｜回應開頭：${text.slice(0, 200).replace(/\s+/g, ' ')}`);
+      try { return JSON.parse(text); } catch { throw new Error('回應不是 JSON｜開頭：' + text.slice(0, 200).replace(/\s+/g, ' ')); }
+    } catch (e) {
+      const c = e && e.cause;
+      if (c && !/原因：/.test(e.message)) e.message += `｜原因：${c.code || c.name || ''} ${c.message || ''}`.trimEnd();
+      lastErr = e;
+      if (attempt < 3) await new Promise(r => setTimeout(r, 3000 * attempt));
+    }
+  }
+  throw lastErr;
+}
+
 export async function run() {
   let accounts = loadAccounts();
   let changed = 0, failed = 0;
@@ -197,6 +253,9 @@ export async function run() {
         let iso = parsed.iso;
         if (!iso) { iso = twToday(); console.warn(`⚠️ ${etf.code}：檔案內找不到日期，改用今天（台北）${iso}`); }
         candidates.push({ iso, rows: parsed.rows });
+      } else if (etf.source === 'nomura') {
+        const parsed = parseNomura(await fetchNomura(etf.code));
+        candidates.push({ iso: parsed.iso, rows: parsed.rows });
       } else {   // fhtrust：依日期逐日下載，往回補最近 7 天
         const have = new Set((acc.data?.sheets || []).map(s => s.iso));
         const base = new Date(twToday() + 'T00:00:00Z');
