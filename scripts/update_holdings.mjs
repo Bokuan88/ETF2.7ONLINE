@@ -283,9 +283,15 @@ async function fetchAllianz(fundId) {
         if (res.status >= 300 && res.status < 400 && res.headers.get('location')) { cur = new URL(res.headers.get('location'), cur).toString(); continue; }
         break;
       }
-      if (!res.ok) throw new Error(`開啟持股頁失敗 HTTP ${res.status}`);
+      const html = await res.text();
+      if (!res.ok) throw new Error(`開啟持股頁失敗 HTTP ${res.status}｜回應開頭：${html.slice(0, 200).replace(/\s+/g, ' ')}`);
       let token = jar.get('X-XSRF-TOKEN');
-      if (!token) throw new Error('網站沒有發 X-XSRF-TOKEN cookie（收到的 cookie：' + ([...jar.keys()].join('、') || '無') + '）｜可能被防護機制擋下或網站改版');
+      if (!token) {
+        const hint = (/(XSRF|RequestVerificationToken|antiforgery)[^<]{0,120}/i.exec(html) || [''])[0].replace(/\s+/g, ' ');
+        throw new Error('網站沒有發 X-XSRF-TOKEN cookie｜診斷：HTTP ' + res.status + '，content-type ' + (res.headers.get('content-type') || '無') +
+          '，內容 ' + html.length + ' 字，收到的 cookie：' + ([...jar.keys()].join('、') || '無') +
+          '｜頁面開頭：' + html.slice(0, 160).replace(/\s+/g, ' ') + (hint ? '｜頁面中的 token 線索：' + hint : ''));
+      }
       if (token.includes('%')) { try { token = decodeURIComponent(token); } catch {} }
       const r = await fetch(`${AZ}/webapi/api/Fund/GetFundAssets`, {
         method: 'POST',
