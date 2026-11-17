@@ -8,6 +8,7 @@ const ROOT = process.env.REPO_ROOT || process.cwd();
 const HOLD_DIR = path.join(ROOT, 'holdings');
 const EZ = process.env.EZMONEY_BASE || 'https://www.ezmoney.com.tw/ETF/Fund/AssetExcelNPOI?fundCode=';
 const FH = process.env.FHTRUST_BASE || 'https://www.fhtrust.com.tw/api/assetsExcel/ETF23/';
+const AZ = process.env.ALLIANZ_BASE || 'https://etf.allianzgi.com.tw';
 const NM = process.env.NOMURA_API || 'https://www.nomurafunds.com.tw/API/ETFAPI/api/Fund/GetFundAssets';
 
 /* ===== 要自動更新的 ETF（帳戶名稱留空 = 自動找「名稱含該代號」的既有帳戶，找不到就用代號新建） ===== */
@@ -18,6 +19,7 @@ const ETFS = [
   { code:'00991A', source:'fhtrust', accountName:'' },   // 復華：依日期逐日下載（會回補最近 7 天沒抓到的日期）
   { code:'00985A', source:'nomura', accountName:'' },    // 野村：直接呼叫網站的 JSON 介面（不是 Excel）
   { code:'00980A', source:'nomura', accountName:'' },
+  { code:'00402A', source:'allianz', fundId:'E0003', dateField:'NavDate', accountName:'' },   // 安聯：內部代號 E0003；資料日期欄位可改成 'PCFDate'
 ];
 
 const HEADER = {
@@ -238,6 +240,77 @@ async function fetchNomura(code) {
   throw lastErr;
 }
 
+/* ===== 安聯投信：先開持股頁取得 cookie 與 X-XSRF-TOKEN，再呼叫 JSON 介面 ===== */
+export function parseAllianz(json, dateField = 'NavDate') {
+  const d = json?.Entries?.Data;
+  const rawDate = d?.FundAsset?.[dateField];
+  const iso = findDate(rawDate);
+  if (!iso) throw new Error(`安聯回應裡找不到資料日期（${dateField}）：` + JSON.stringify(rawDate));
+  const table = (d?.Table || []).find(t => /^股票/.test(String(t.TableTitle || '')) && (t.Columns || []).some(c => /代號|代碼/.test(String(c?.Name || ''))));
+  if (!table) throw new Error('安聯回應裡找不到「股票」明細表格');
+  const cols = (table.Columns || []).map(c => String(c?.Name || ''));
+  const ic = cols.findIndex(c => /代號|代碼/.test(c)), iname = cols.findIndex(c => /名稱/.test(c));
+  const ish = cols.findIndex(c => /股數/.test(c)), iw = cols.findIndex(c => /權重|比重/.test(c));
+  if (ic < 0 || ish < 0) throw new Error('安聯表格欄位名稱不符預期：' + cols.join('、'));
+  const map = new Map();
+  for (const r of table.Rows || []) {
+    const code = String(r[ic] ?? '').trim();          // 例如 "AAPL US"
+    const shares = toNum(r[ish]);                      // "39,400" → 39400
+    if (!code || !(shares > 0) || SKIP_CODE.test(code) || !CODE_OK.test(code)) continue;
+    const w = iw >= 0 && r[iw] !== '' && r[iw] != null ? toNum(r[iw]) : null;   // "9.23%" → 9.23
+    if (map.has(code)) map.get(code)[1].shares += shares;
+    else map.set(code, [code, { name: iname >= 0 ? String(r[iname] ?? '').trim() : '', shares, dValue: w }]);
+  }
+  return { iso, rows: [...map.values()] };
+}
+async function fetchAllianz(fundId) {
+  const pageUrl = `${AZ}/etf-info/${fundId}?tab=4`;
+  const jar = new Map();
+  const absorb = res => (typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : []).forEach(c => {
+    const kv = c.split(';')[0]; const i = kv.indexOf('='); if (i > 0) jar.set(kv.slice(0, i).trim(), kv.slice(i + 1).trim());
+  });
+  const cookie = () => [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+  let lastErr;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      jar.clear();
+      let cur = pageUrl, res;
+      for (let hop = 0; hop < 6; hop++) {
+        const h = { ...BASE_HEADERS, Accept: 'text/html,application/xhtml+xml,*/*;q=0.8', 'Sec-Fetch-Site': 'none' };
+        if (jar.size) h.Cookie = cookie();
+        res = await fetch(cur, { headers: h, redirect: 'manual', signal: AbortSignal.timeout(60000) });
+        absorb(res);
+        if (res.status >= 300 && res.status < 400 && res.headers.get('location')) { cur = new URL(res.headers.get('location'), cur).toString(); continue; }
+        break;
+      }
+      if (!res.ok) throw new Error(`開啟持股頁失敗 HTTP ${res.status}`);
+      let token = jar.get('X-XSRF-TOKEN');
+      if (!token) throw new Error('網站沒有發 X-XSRF-TOKEN cookie（收到的 cookie：' + ([...jar.keys()].join('、') || '無') + '）｜可能被防護機制擋下或網站改版');
+      if (token.includes('%')) { try { token = decodeURIComponent(token); } catch {} }
+      const r = await fetch(`${AZ}/webapi/api/Fund/GetFundAssets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json', 'Accept': 'application/json, text/plain, */*',
+          'Origin': AZ, 'Referer': pageUrl, 'X-XSRF-TOKEN': token, 'Cookie': cookie(),
+          'User-Agent': BASE_HEADERS['User-Agent'], 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8',
+          'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin',
+        },
+        body: JSON.stringify({ FundID: fundId }),
+        signal: AbortSignal.timeout(60000),
+      });
+      const text = await r.text();
+      if (!r.ok) throw new Error(`HTTP ${r.status}｜回應開頭：${text.slice(0, 200).replace(/\s+/g, ' ')}`);
+      try { return JSON.parse(text); } catch { throw new Error('回應不是 JSON｜開頭：' + text.slice(0, 200).replace(/\s+/g, ' ')); }
+    } catch (e) {
+      const c = e && e.cause;
+      if (c && !/原因：/.test(e.message)) e.message += `｜原因：${c.code || c.name || ''} ${c.message || ''}`.trimEnd();
+      lastErr = e;
+      if (attempt < 3) await new Promise(r => setTimeout(r, 3000 * attempt));
+    }
+  }
+  throw lastErr;
+}
+
 export async function run() {
   let accounts = loadAccounts();
   let changed = 0, failed = 0;
@@ -255,6 +328,9 @@ export async function run() {
         candidates.push({ iso, rows: parsed.rows });
       } else if (etf.source === 'nomura') {
         const parsed = parseNomura(await fetchNomura(etf.code));
+        candidates.push({ iso: parsed.iso, rows: parsed.rows });
+      } else if (etf.source === 'allianz') {
+        const parsed = parseAllianz(await fetchAllianz(etf.fundId), etf.dateField || 'NavDate');
         candidates.push({ iso: parsed.iso, rows: parsed.rows });
       } else {   // fhtrust：依日期逐日下載，往回補最近 7 天
         const have = new Set((acc.data?.sheets || []).map(s => s.iso));
